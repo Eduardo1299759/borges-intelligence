@@ -1,0 +1,35 @@
+[project]
+name = "borges-intelligence-backend"
+version = "0.1.0"
+description = "Borges Intelligence — AI Traffic Operating System (API)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.2",
+  "pydantic-settings>=2.4",
+  "pydantic>=2.8",
+  "pyjwt>=2.9",
+  "bcrypt>=4.2",
+  "alembic>=1.13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore:Dialect sqlite\\+pysqlite does \\*not\\* support Decimal"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008"]

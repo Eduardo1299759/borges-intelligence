@@ -1,0 +1,9 @@
+.env
+*.db
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+node_modules/
+.next/
