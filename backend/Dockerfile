@@ -3,7 +3,7 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[postgres]"
 COPY alembic.ini ./
 COPY alembic ./alembic
 RUN useradd --create-home borges && chown -R borges /app

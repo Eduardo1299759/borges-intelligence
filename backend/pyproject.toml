@@ -5,9 +5,9 @@ description = "Borges Intelligence — AI Traffic Operating System (API)"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
+  # Sem o extra [standard]: ele puxa pacotes que precisam de compilador C em versões novas do Python.
+  "uvicorn>=0.30",
   "sqlalchemy>=2.0",
-  "psycopg[binary]>=3.2",
   "pydantic-settings>=2.4",
   "pydantic>=2.8",
   "pyjwt>=2.9",
@@ -18,6 +18,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Driver do PostgreSQL: necessário só fora da instalação local com SQLite (Docker, produção).
+postgres = ["psycopg[binary]>=3.2"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]

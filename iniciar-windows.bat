@@ -28,13 +28,25 @@ if errorlevel 1 (
   goto :fail
 )
 set "PY="
-where py >nul 2>nul
-if not errorlevel 1 set "PY=py -3"
+REM Prefere versoes estaveis do Python quando houver mais de uma instalada.
+for %%V in (3.13 3.12 3.14 3.11 3) do (
+  if not defined PY (
+    py -%%V -c "import sys" >nul 2>nul
+    if not errorlevel 1 set "PY=py -%%V"
+  )
+)
 if not defined PY (
   where python >nul 2>nul
   if not errorlevel 1 set "PY=python"
 )
-if not defined PY goto :nopython
+if not defined PY goto :piperror
+echo.
+echo  Falha ao instalar as dependencias do Python. Se o erro acima falar em "Microsoft Visual C++",
+echo  instale o Python 3.13 em https://www.python.org/downloads/ - ele passa a ser usado automaticamente -
+echo  apague a pasta "backend\.venv" e rode este arquivo de novo.
+goto :fail
+
+:nopython
 %PY% -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
 if errorlevel 1 goto :nopython
 
@@ -61,8 +73,8 @@ if not exist ".venv\Scripts\python.exe" (
   if errorlevel 1 goto :fail
 )
 echo [3/6] Instalando dependencias do backend - pode demorar na primeira vez...
-".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -e ".[dev]"
-if errorlevel 1 goto :fail
+".venv\Scripts\python.exe" -m pip install --disable-pip-version-check --prefer-binary -q -e .
+if errorlevel 1 goto :piperror
 echo [4/6] Preparando configuracao e banco de dados...
 ".venv\Scripts\python.exe" -m app.cli init-env --accounts "%ACCOUNTS%" >nul
 if errorlevel 1 goto :fail

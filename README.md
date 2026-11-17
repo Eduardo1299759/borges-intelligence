@@ -39,7 +39,8 @@ npm install
 npm run dev                                # http://localhost:3000
 ```
 
-O padrão local é SQLite. Para PostgreSQL, ajuste `BORGES_DATABASE_URL` em `backend/.env`.
+O padrão local é SQLite. Para PostgreSQL, instale o driver com `pip install -e ".[dev,postgres]"` e ajuste
+`BORGES_DATABASE_URL` em `backend/.env`.
 
 ## Executar com Docker
 
