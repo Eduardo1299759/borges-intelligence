@@ -11,6 +11,13 @@ para as decisões técnicas.
 > Clientes de **demonstração** usam dados gerados, sempre sinalizados. Clientes **reais** leem Meta Ads e
 > Google Ads pelo Windsor.ai, somente leitura. Não há chamadas a LLM e nenhuma campanha real é alterada.
 
+## Windows: instalação com dois cliques
+
+Com Git, Python 3.11+ e Node.js 20+ instalados, coloque `iniciar-windows.bat` numa pasta e dê dois cliques.
+Na primeira vez ele baixa o projeto, instala as dependências, gera o `backend/.env` com chaves novas, cria o
+banco e abre o painel em http://localhost:3000, mostrando o login. Nas vezes seguintes, só atualiza e liga.
+Para limitar as contas do Windsor.ai, edite a linha `set "ACCOUNTS="` no início do arquivo.
+
 ## Executar localmente (sem Docker)
 
 Requisitos: Python 3.11+, Node 20+.
@@ -18,7 +25,7 @@ Requisitos: Python 3.11+, Node 20+.
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env
+.venv/bin/python -m app.cli init-env     # cria o .env com chaves geradas e mostra o login
 .venv/bin/python -m app.cli init-db
 .venv/bin/python -m app.cli seed          # cria o administrador (a senha gerada aparece uma única vez)
 .venv/bin/uvicorn app.main:app --port 8000

@@ -1,5 +1,6 @@
 """Comandos administrativos.
 
+  python -m app.cli init-env [--accounts IDS]    cria o backend/.env com chaves geradas (instalação local)
   python -m app.cli init-db                      aplica as migrações
   python -m app.cli seed                         cria o administrador inicial e um cliente demonstrativo
   python -m app.cli create-user EMAIL NOME PAPEL cria um usuário (senha solicitada no terminal)
@@ -18,6 +19,43 @@ from app.core.db import SessionLocal
 from app.core.security import hash_password
 from app.models import ROLES, Client, User, UserClientAccess
 from app.services import audit
+
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
+
+def _read_env(path: Path) -> dict[str, str]:
+    values = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip()
+    return values
+
+
+def init_env(accounts: str | None) -> None:
+    """Cria o .env local a partir do .env.example, gerando as chaves. Nunca sobrescreve um .env existente."""
+    from cryptography.fernet import Fernet
+
+    if not ENV_FILE.exists():
+        generated = {
+            "BORGES_SECRET_KEY": secrets.token_urlsafe(48),
+            "BORGES_ENCRYPTION_KEY": Fernet.generate_key().decode(),
+            "BORGES_ADMIN_PASSWORD": secrets.token_urlsafe(12),
+            "BORGES_WINDSOR_ALLOWED_ACCOUNTS": (accounts or "").replace(" ", ""),
+        }
+        lines = []
+        for line in (ENV_FILE.parent / ".env.example").read_text(encoding="utf-8").splitlines():
+            key = line.partition("=")[0].strip()
+            lines.append(f"{key}={generated.pop(key)}" if key in generated else line)
+        lines += [f"{k}={v}" for k, v in generated.items()]
+        ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(f"Arquivo de configuração criado: {ENV_FILE}")
+    else:
+        print(f"Arquivo de configuração já existe (mantido): {ENV_FILE}")
+    values = _read_env(ENV_FILE)
+    if values.get("BORGES_ADMIN_PASSWORD"):
+        print(f"Login do painel: {values.get('BORGES_ADMIN_EMAIL') or 'admin@borges.local'}"
+              f" / senha: {values['BORGES_ADMIN_PASSWORD']}")
 
 
 def init_db() -> None:
@@ -82,6 +120,8 @@ def create_user(email: str, name: str, role: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
+    ie = sub.add_parser("init-env")
+    ie.add_argument("--accounts", default=None, help="IDs de contas Windsor.ai permitidas, separados por vírgula")
     sub.add_parser("init-db")
     sub.add_parser("seed")
     cu = sub.add_parser("create-user")
@@ -89,7 +129,9 @@ def main() -> None:
     cu.add_argument("name")
     cu.add_argument("role", choices=ROLES)
     args = parser.parse_args()
-    if args.cmd == "init-db":
+    if args.cmd == "init-env":
+        init_env(args.accounts)
+    elif args.cmd == "init-db":
         init_db()
     elif args.cmd == "seed":
         seed()
