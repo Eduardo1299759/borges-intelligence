@@ -44,7 +44,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
       .catch((e: { status?: number; message: string }) => {
         if (e.status === 401) window.location.assign("/login");
-        else if (!cancelled) setError(e.message);
+        else if (!cancelled) {
+          setError((e.status ?? 0) >= 500
+            ? "A API do Borges não está respondendo. Confira se a janela \"Borges API\" está aberta e sem erros e recarregue esta página."
+            : e.message);
+        }
       });
     return () => {
       cancelled = true;
@@ -66,7 +70,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [user, clients, selectedId, selectClient, reloadClients]);
 
-  if (error) return <p className="p-10 text-sm text-rose-700">Não foi possível conectar à API: {error}</p>;
+  if (error) return <p className="p-10 text-sm text-rose-700">Não foi possível carregar o painel. {error}</p>;
   if (!value) return <p className="p-10 text-sm text-muted">Carregando…</p>;
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

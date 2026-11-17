@@ -72,6 +72,24 @@ def login_info() -> None:
             print("Login do painel: o que você definiu em Configurações > Minha conta.")
 
 
+def wait_api(url: str = "http://127.0.0.1:8000/api/health", seconds: int = 60) -> bool:
+    """Espera a API local responder (usado pelo instalador antes de abrir o navegador)."""
+    import time
+    import urllib.request
+
+    for _ in range(seconds):
+        try:
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                if resp.status == 200:
+                    print("API respondendo.")
+                    return True
+        except OSError:
+            pass
+        time.sleep(1)
+    print("A API não respondeu em 60 segundos.")
+    return False
+
+
 def init_db() -> None:
     from alembic.config import Config
 
@@ -137,6 +155,7 @@ def main() -> None:
     ie = sub.add_parser("init-env")
     ie.add_argument("--accounts", default=None, help="IDs de contas Windsor.ai permitidas, separados por vírgula")
     sub.add_parser("login-info")
+    sub.add_parser("wait-api")
     sub.add_parser("init-db")
     sub.add_parser("seed")
     cu = sub.add_parser("create-user")
@@ -148,6 +167,8 @@ def main() -> None:
         init_env(args.accounts)
     elif args.cmd == "login-info":
         login_info()
+    elif args.cmd == "wait-api":
+        sys.exit(0 if wait_api() else 1)
     elif args.cmd == "init-db":
         init_db()
     elif args.cmd == "seed":

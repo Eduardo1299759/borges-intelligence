@@ -100,7 +100,12 @@ cd /d "%ROOT%backend"
 ".venv\Scripts\python.exe" -m app.cli login-info
 echo.
 echo  Para desligar, feche as duas janelas "Borges API" e "Borges Painel".
-timeout /t 20 /nobreak >nul
+echo  Aguardando a API responder...
+".venv\Scripts\python.exe" -m app.cli wait-api
+if errorlevel 1 (
+  echo  [AVISO] A API nao respondeu. Veja se ha erro na janela "Borges API" e mande um print para o Claude.
+)
+timeout /t 8 /nobreak >nul
 start "" http://localhost:3000
 echo.
 pause
