@@ -8,7 +8,7 @@ import httpx2
 import pytest
 from sqlalchemy import select
 
-from app.ai import narrator, pricing
+from app.ai import narrator, pricing, runner
 from app.models import AIUsage
 
 KEY = "sk-ant-test-0000000000000000000000"
@@ -57,7 +57,7 @@ def fake(monkeypatch):
         assert api_key == KEY  # a chave chega decifrada só no momento da chamada
         return holder["client"]
 
-    monkeypatch.setattr(narrator, "build_client", build)
+    monkeypatch.setattr(runner, "build_client", build)
     return holder
 
 
@@ -147,7 +147,7 @@ def test_refusal_and_api_errors_fall_back_to_rules(admin, demo_client, fake, mon
 
     def boom(api_key):
         raise anthropic.APIConnectionError(request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages"))
-    monkeypatch.setattr(narrator, "build_client", boom)
+    monkeypatch.setattr(runner, "build_client", boom)
     s = analyze(admin, demo_client["id"])["summary"]
     assert "falha de conexão" in s["ai"]["note"] and s["answer"].startswith("Analisei")
 
@@ -170,7 +170,7 @@ def test_real_sdk_request_shape(monkeypatch, admin, demo_client):
     def build(api_key):
         return anthropic.Anthropic(api_key=api_key, base_url="https://anthropic.test", max_retries=0,
                                    http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(handler)))
-    monkeypatch.setattr(narrator, "build_client", build)
+    monkeypatch.setattr(runner, "build_client", build)
     enable(admin)
     s = analyze(admin, demo_client["id"])["summary"]
     assert s["ai"]["used"], s["ai"]

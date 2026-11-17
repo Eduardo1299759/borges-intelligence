@@ -17,18 +17,21 @@ AGENTS = [
     {"code": "04", "name": "Google Ads Specialist", "role": "Estrutura e otimização Google", "status": "partial",
      "phase": 3, "capability": "Diagnóstico por grupo de anúncios e conversões sem valor configurado. "
                                "Sem termos de pesquisa nem palavras-chave ainda."},
-    {"code": "05", "name": "Creative Intelligence", "role": "Análise e criação de criativos", "status": "planned",
-     "phase": 4, "capability": ""},
-    {"code": "06", "name": "Competitive Intelligence", "role": "Inteligência competitiva", "status": "planned",
-     "phase": 4, "capability": ""},
+    {"code": "05", "name": "Creative Intelligence", "role": "Análise e criação de criativos", "status": "partial",
+     "phase": 4, "capability": "Biblioteca de criativos com classificação e desgaste; briefings com variações "
+                               "(IA ou modelo). Sem geração de imagem."},
+    {"code": "06", "name": "Competitive Intelligence", "role": "Inteligência competitiva", "status": "partial",
+     "phase": 4, "capability": "Concorrentes e anúncios públicos capturados manualmente; ângulos e "
+                               "oportunidades com IA. Biblioteca de Anúncios da Meta aguarda token."},
     {"code": "07", "name": "Sales Intelligence", "role": "Conversão comercial e CRM", "status": "planned", "phase": 5,
      "capability": ""},
     {"code": "08", "name": "Tracking & CRO", "role": "Mensuração e conversão", "status": "planned", "phase": 5,
      "capability": ""},
     {"code": "09", "name": "Financial Intelligence", "role": "Rentabilidade", "status": "partial", "phase": 2,
      "capability": "CAC real, ROAS de equilíbrio, CAC máximo, lucro de contribuição e ritmo de verba. Sem LTV."},
-    {"code": "10", "name": "Experimentation Engine", "role": "Experimentos", "status": "planned", "phase": 4,
-     "capability": ""},
+    {"code": "10", "name": "Experimentation Engine", "role": "Experimentos", "status": "active", "phase": 4,
+     "capability": "Testes entre anúncios com tamanho de amostra, teste estatístico, critérios e "
+                   "registro do aprendizado."},
     {"code": "11", "name": "Reporting Intelligence", "role": "Relatórios", "status": "planned", "phase": 6,
      "capability": ""},
     {"code": "12", "name": "Operations & Safety", "role": "Execução controlada", "status": "partial", "phase": 5,

@@ -82,8 +82,30 @@
 - Termos de pesquisa, palavras-chave e negativas do Google (o conector ainda não lê esses relatórios).
 - Dimensões (posicionamento, região, horário, dispositivo).
 
-## Fase 4 — Competitiva e criativa
-Meta Ad Library, análise de criativos, briefings, geração de imagens, motor de experimentos.
+## Fase 4 — Competitiva, criativa e experimentos ✅
+
+**Entregue**
+- Creative Studio: biblioteca de criativos (anúncios da Meta) classificados contra a própria campanha
+  (vencedor, na média, pouco volume, abaixo da média, sem resultado) e tendência de desgaste pelo CTR.
+- Briefings com 3 a 5 variações (título, texto, CTA, formato, orientação visual e hipótese de teste),
+  escritos pela IA quando ativa ou por um modelo com ângulos clássicos. A IA não pode citar número que não
+  esteja na oferta informada; se citar, o briefing cai para o modelo.
+- Experimentation Engine: teste entre anúncios da mesma campanha com problema, hipótese, variável, métrica
+  principal, métricas de proteção, variação mínima a detectar e duração. Calcula o volume necessário (5% de
+  significância, 80% de poder), avalia com teste z de duas proporções na taxa clique → lead, só declara
+  resultado ao atingir o volume ou a duração (antes, mostra tendência), permite análise retroativa, e
+  registra resultado e aprendizado na conclusão.
+- Radar competitivo: concorrentes e anúncios públicos capturados manualmente (só links http/https), tempo
+  no ar e resumo de ângulos, ofertas e ideias de teste pela IA, ou resumo por regras sem IA.
+
+**Como é verificado:** `tests/test_experiment_stats.py` (fórmulas conferidas à mão),
+`tests/test_growth.py` (API, isolamento, papéis, IA com preço inventado), `e2e/phase4.cjs` no navegador.
+
+**Não feito nesta fase**
+- Geração de imagens (exige um provedor pago de imagem).
+- Busca automática na Biblioteca de Anúncios da Meta (exige token com identidade confirmada pela Meta).
+- Teste A/B nativo da Meta (exige escrita autorizada, Fase 5); o teste entre anúncios do mesmo conjunto
+  indica, mas não prova, causalidade.
 
 ## Fase 5 — Comercial e execução
 CRM e vendas reais, tracking/CRO, conectores de escrita autorizados, reversão, nível 3 com limites.

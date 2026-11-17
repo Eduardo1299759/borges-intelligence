@@ -3,7 +3,7 @@
 Plataforma de inteligência para gestão, análise e otimização de tráfego pago, operada por agentes
 especializados coordenados pelo **Borges Core**.
 
-**Estado atual: Fases 1, 2 e 3 (sem LLM) implementadas.** O conector Windsor.ai segue a documentação oficial e foi
+**Estado atual: Fases 1 a 4 implementadas**, com IA opcional da Anthropic. O conector Windsor.ai segue a documentação oficial e foi
 conferido com linhas reais; falta apenas uma sincronização completa com uma chave real. Veja [docs/PHASES.md](docs/PHASES.md)
 para o que existe, o que é simulado e o que vem a seguir, e [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 para as decisões técnicas.
@@ -80,7 +80,9 @@ E2E_EMAIL=admin@borges.local E2E_PASSWORD=... node e2e/mvp.cjs   # exige API + f
 
 O teste E2E percorre no navegador os dez critérios de aceitação do MVP.
 
-O E2E da Fase 2 usa um Windsor.ai falso local (nunca a API real):
+Os E2E da Fase 2 e da IA usam serviços falsos locais (nunca as APIs reais). O da Fase 4 (`e2e/phase4.cjs`)
+roda com a IA desligada. Para o da IA, suba também `python -m tests.fake_anthropic_server 8098` e inicie a
+API com `BORGES_ANTHROPIC_BASE_URL=http://127.0.0.1:8098`. O da Fase 2:
 
 ```bash
 cd backend && .venv/bin/python -m tests.fake_windsor_server 8099

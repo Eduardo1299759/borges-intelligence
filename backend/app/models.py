@@ -368,3 +368,83 @@ class AIUsage(Base):
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 4), default=Decimal("0"))
     detail: Mapped[str | None] = mapped_column(Text)
+
+
+class Experiment(Base):
+    """Teste A/B entre anúncios (controle x variante) de um cliente, do planejamento ao aprendizado."""
+
+    __tablename__ = "experiments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"))
+    recommendation_id: Mapped[int | None] = mapped_column(ForeignKey("recommendations.id", ondelete="SET NULL"))
+    brief_id: Mapped[int | None] = mapped_column(ForeignKey("creative_briefs.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String(200))
+    problem: Mapped[str] = mapped_column(Text)
+    hypothesis: Mapped[str] = mapped_column(Text)
+    variable: Mapped[str] = mapped_column(String(200))
+    primary_metric: Mapped[str] = mapped_column(String(30), default="lead_rate")
+    guardrails: Mapped[list[str]] = mapped_column(JSON, default=list)
+    control_ad_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    variant_ad_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    relative_mde_pct: Mapped[Decimal] = mapped_column(Numeric(5, 1), default=Decimal("20"))
+    planned_days: Mapped[int] = mapped_column(Integer, default=14)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    # draft | running | concluded | cancelled
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    outcome: Mapped[str | None] = mapped_column(String(20))  # success | failure | inconclusive
+    learning: Mapped[str | None] = mapped_column(Text)
+    final_result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    concluded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CreativeBrief(Base):
+    """Briefing de criativo com variações para teste. Gerado pela IA (se ativa) ou por modelo-padrão."""
+
+    __tablename__ = "creative_briefs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"))
+    ad_id: Mapped[int | None] = mapped_column(ForeignKey("ads.id", ondelete="SET NULL"))
+    recommendation_id: Mapped[int | None] = mapped_column(ForeignKey("recommendations.id", ondelete="SET NULL"))
+    objective: Mapped[str] = mapped_column(Text)
+    audience: Mapped[str] = mapped_column(Text)
+    offer: Mapped[str] = mapped_column(Text)
+    angle: Mapped[str | None] = mapped_column(Text)
+    hypothesis: Mapped[str | None] = mapped_column(Text)
+    variations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    source: Mapped[str] = mapped_column(String(20))  # ia | modelo
+    ai_model: Mapped[str | None] = mapped_column(String(60))
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Competitor(Base):
+    __tablename__ = "competitors"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    website: Mapped[str | None] = mapped_column(String(300))
+    facebook_page: Mapped[str | None] = mapped_column(String(300))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CompetitorAd(Base):
+    """Anúncio público de um concorrente. Fonte registrada: captura manual ou Biblioteca de Anúncios da Meta."""
+
+    __tablename__ = "competitor_ads"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    competitor_id: Mapped[int] = mapped_column(ForeignKey("competitors.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(30), default="manual")
+    url: Mapped[str | None] = mapped_column(String(500))
+    ad_text: Mapped[str] = mapped_column(Text)
+    offer: Mapped[str | None] = mapped_column(Text)
+    format: Mapped[str | None] = mapped_column(String(40))
+    first_seen: Mapped[date | None] = mapped_column(Date)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -10,6 +10,9 @@ INTEGRATIONS = [
      "note": "A leitura vem pelo Windsor.ai. Conector direto, com escrita autorizada, na Fase 5."},
     {"key": "google_ads", "name": "Google Ads (direto)", "kind": "escrita", "status": "planned", "phase": 5,
      "note": "A leitura vem pelo Windsor.ai. Conector direto, com escrita autorizada, na Fase 5."},
+    {"key": "meta_ad_library", "name": "Biblioteca de Anúncios da Meta", "kind": "leitura", "status": "planned",
+     "phase": 4, "note": "Exige token de acesso com identidade confirmada pela Meta. Até lá, anúncios de "
+                         "concorrentes são cadastrados manualmente no Radar."},
     {"key": "ga4", "name": "Google Analytics 4", "kind": "leitura", "status": "planned", "phase": 5, "note": ""},
     {"key": "gsc", "name": "Google Search Console", "kind": "leitura", "status": "planned", "phase": 5, "note": ""},
     {"key": "gtm", "name": "Google Tag Manager", "kind": "leitura", "status": "planned", "phase": 5, "note": ""},
