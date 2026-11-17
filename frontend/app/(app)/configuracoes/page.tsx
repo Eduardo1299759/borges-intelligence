@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useApp } from "@/components/app-context";
+import { AccountCard } from "@/components/account-card";
 import { IntegrationPanel } from "@/components/integration-panel";
 import { Badge, Card, CardHeader, PageTitle } from "@/components/ui";
 import { useApi } from "@/lib/api";
@@ -14,11 +15,12 @@ const LEVELS = [
 ];
 
 export default function SettingsPage() {
-  const { client, canManage } = useApp();
+  const { client, canManage, user } = useApp();
   const integrations = useApi<Integration[]>("/integrations");
   return (
     <>
-      <PageTitle title="Configurações" subtitle="Integrações, limites de execução e custos." />
+      <PageTitle title="Configurações" subtitle="Sua conta, integrações, limites de execução e custos." />
+      <div className="mb-6"><AccountCard user={user} /></div>
       {client && <div className="mb-6"><IntegrationPanel key={client.id} client={client} canManage={canManage} /></div>}
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>

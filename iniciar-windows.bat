@@ -97,7 +97,7 @@ start "Borges Painel (nao feche)" /D "%ROOT%frontend" cmd /k "npm run dev"
 echo.
 echo  Pronto. O painel vai abrir no navegador em alguns segundos: http://localhost:3000
 cd /d "%ROOT%backend"
-".venv\Scripts\python.exe" -m app.cli init-env
+".venv\Scripts\python.exe" -m app.cli login-info
 echo.
 echo  Para desligar, feche as duas janelas "Borges API" e "Borges Painel".
 timeout /t 20 /nobreak >nul

@@ -31,8 +31,8 @@ export default function LoginPage() {
           <p className="text-sm text-muted">AI Traffic Operating System</p>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
-        <Field label="E-mail">
-          <input name="email" type="email" required autoComplete="username" className={inputClass} />
+        <Field label="Login">
+          <input name="email" type="text" required autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" className={inputClass} />
         </Field>
         <Field label="Senha">
           <input name="password" type="password" required autoComplete="current-password" className={inputClass} />

@@ -1,6 +1,7 @@
 """Comandos administrativos.
 
   python -m app.cli init-env [--accounts IDS]    cria o backend/.env com chaves geradas (instalação local)
+  python -m app.cli login-info                   mostra o login inicial (se ainda não foi trocado)
   python -m app.cli init-db                      aplica as migrações
   python -m app.cli seed                         cria o administrador inicial e um cliente demonstrativo
   python -m app.cli create-user EMAIL NOME PAPEL cria um usuário (senha solicitada no terminal)
@@ -16,7 +17,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.db import SessionLocal
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models import ROLES, Client, User, UserClientAccess
 from app.services import audit
 
@@ -56,6 +57,19 @@ def init_env(accounts: str | None) -> None:
     if values.get("BORGES_ADMIN_PASSWORD"):
         print(f"Login do painel: {values.get('BORGES_ADMIN_EMAIL') or 'admin@borges.local'}"
               f" / senha: {values['BORGES_ADMIN_PASSWORD']}")
+
+
+def login_info() -> None:
+    """Mostra o login inicial, ou avisa que ele já foi trocado pelo usuário no painel."""
+    values = _read_env(ENV_FILE) if ENV_FILE.exists() else {}
+    email = (values.get("BORGES_ADMIN_EMAIL") or "admin@borges.local").lower()
+    password = values.get("BORGES_ADMIN_PASSWORD") or ""
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == email))
+        if user is not None and password and verify_password(password, user.password_hash):
+            print(f"Login do painel: {email} / senha: {password}")
+        else:
+            print("Login do painel: o que você definiu em Configurações > Minha conta.")
 
 
 def init_db() -> None:
@@ -122,6 +136,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="cmd", required=True)
     ie = sub.add_parser("init-env")
     ie.add_argument("--accounts", default=None, help="IDs de contas Windsor.ai permitidas, separados por vírgula")
+    sub.add_parser("login-info")
     sub.add_parser("init-db")
     sub.add_parser("seed")
     cu = sub.add_parser("create-user")
@@ -131,6 +146,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.cmd == "init-env":
         init_env(args.accounts)
+    elif args.cmd == "login-info":
+        login_info()
     elif args.cmd == "init-db":
         init_db()
     elif args.cmd == "seed":

@@ -14,6 +14,31 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+class CredentialsIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_login: str | None = Field(default=None, max_length=255)
+    new_password: str | None = Field(default=None, max_length=200)
+
+    @field_validator("new_login")
+    @classmethod
+    def _login(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
+        v = v.strip().lower()
+        if len(v) < 3 or any(ch.isspace() for ch in v):
+            raise ValueError("O login precisa de ao menos 3 caracteres e não pode ter espaços.")
+        return v
+
+    @field_validator("new_password")
+    @classmethod
+    def _password(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        if len(v) < 8:
+            raise ValueError("A nova senha precisa de ao menos 8 caracteres.")
+        return v
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

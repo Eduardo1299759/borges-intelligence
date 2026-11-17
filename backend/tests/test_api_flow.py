@@ -238,3 +238,28 @@ def test_audit_chain_detects_tampering(admin, demo_client, db):
     db.execute(text("UPDATE audit_log SET details = '{\"name\": \"adulterado\"}' WHERE id = :i"), {"i": victim.id})
     db.commit()
     assert audit.verify_chain(db) == {"valid": False, "entries": victim.id - 1, "broken_at_id": victim.id}
+
+
+def test_user_changes_own_login_and_password(db):
+    make_user(db, "admin@borges.local", "admin")
+    make_user(db, "outro@example.com", "manager")
+    http = login("admin@borges.local")
+    url = "/api/auth/me/credentials"
+    assert http.put(url, json={"current_password": "errada", "new_password": "nova-senha-1"}).status_code == 403
+    assert http.put(url, json={"current_password": "senha-de-teste-123"}).status_code == 422
+    assert http.put(url, json={"current_password": "senha-de-teste-123", "new_password": "curta"}).status_code == 422
+    assert http.put(url, json={"current_password": "senha-de-teste-123", "new_login": "com espaco"}).status_code == 422
+    taken = http.put(url, json={"current_password": "senha-de-teste-123", "new_login": "outro@example.com"})
+    assert taken.status_code == 409
+    ok = http.put(url, json={"current_password": "senha-de-teste-123", "new_login": "  BorgesOEduardo ",
+                             "new_password": "Qwect@1289-teste"})
+    assert ok.status_code == 200 and ok.json()["email"] == "borgesoeduardo"
+    assert http.get("/api/auth/me").json()["email"] == "borgesoeduardo"  # sessão continua válida
+    fresh = TestClient(app)
+    assert fresh.post("/api/auth/login", json={"email": "admin@borges.local",
+                                                "password": "senha-de-teste-123"}).status_code == 401
+    assert fresh.post("/api/auth/login", json={"email": "BorgesOEduardo",
+                                                "password": "Qwect@1289-teste"}).status_code == 200
+    log = http.get("/api/audit").json()
+    change = next(e for e in log if e["action"] == "auth.credentials_changed")
+    assert "Qwect" not in str(change) and change["details"]["changes"][0]["to"] == "borgesoeduardo"
