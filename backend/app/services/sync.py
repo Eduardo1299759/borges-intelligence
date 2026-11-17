@@ -34,7 +34,7 @@ def windsor_connector(client: Client, integration: Integration) -> WindsorConnec
     api_key = crypto.decrypt(integration.credentials_encrypted)
     allowed = get_settings().allowed_accounts()
     accounts = [a for a in integration.accounts or [] if allowed is None or a["external_id"] in allowed]
-    return WindsorConnector(WindsorClient(api_key), accounts, currency=client.currency)
+    return WindsorConnector(WindsorClient(api_key), accounts, currency=client.currency, allowed=allowed)
 
 
 def _connector_for(db: Session, client: Client) -> tuple[ReadConnector, Integration | None]:

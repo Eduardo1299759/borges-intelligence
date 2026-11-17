@@ -75,7 +75,8 @@ def connect_windsor(client_id: int, body: WindsorKeyIn, user: User = Depends(cur
         db.add(integration)
     else:
         integration.credentials_encrypted, integration.key_hint = encrypted, body.api_key[-4:]
-    status = WindsorConnector(WindsorClient(body.api_key), [], currency=client.currency).check()
+    status = WindsorConnector(WindsorClient(body.api_key), [], currency=client.currency,
+                              allowed=get_settings().allowed_accounts()).check()
     integration.status = "connected" if status.ok else "error"
     integration.last_error = None if status.ok else status.detail
     integration.last_checked_at = datetime.now(UTC)
@@ -96,8 +97,7 @@ def discover_accounts(client_id: int, user: User = Depends(current_user), db: Se
         found = sync.windsor_connector(client, integration).discover_accounts(days=30)
     except (WindsorError, crypto.EncryptionUnavailable) as exc:
         raise HTTPException(502, str(exc)) from exc
-    allowed = get_settings().allowed_accounts()
-    return [a for a in found if allowed is None or a["external_id"] in allowed]
+    return found  # o conector já aplica o escopo da instalação
 
 
 @router.put("/integration/windsor/accounts")

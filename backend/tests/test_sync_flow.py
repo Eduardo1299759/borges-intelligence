@@ -197,8 +197,16 @@ def test_installation_wide_account_allowlist(admin, live, fake, monkeypatch):
     cid = live["id"]
     connect(admin, cid)  # seleção feita antes de o escopo ser restringido
     monkeypatch.setattr(get_settings(), "windsor_allowed_accounts", f"{GOOGLE_A}, 999")
+    fake.requests.clear()
     found = admin.get(f"/api/clients/{cid}/integration/windsor/accounts").json()
     assert [a["external_id"] for a in found] == [GOOGLE_A]
+    # só a plataforma com conta permitida é consultada, e só com essas contas
+    assert [(r.url.path, r.url.params.get("select_accounts")) for r in fake.requests] == [
+        ("/facebook", "999"), ("/google_ads", GOOGLE_A)]
+    fake.requests.clear()
+    assert admin.put(f"/api/clients/{cid}/integration/windsor", json={"api_key": VALID_KEY}).json()["status"] \
+        == "connected"
+    assert all(r.url.params.get("select_accounts") for r in fake.requests)
     r = admin.put(f"/api/clients/{cid}/integration/windsor/accounts", json={"accounts": ACCOUNTS})
     assert r.status_code == 422 and META_A in r.json()["detail"]
     run = admin.post(f"/api/clients/{cid}/sync", json={"days": 5}).json()

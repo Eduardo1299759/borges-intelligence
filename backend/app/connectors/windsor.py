@@ -183,14 +183,23 @@ def _norm_account(platform: str, external_id: Any) -> str:
     return str(external_id).strip()
 
 
+def _platform_of(account_id: str) -> str:
+    """IDs do Google Ads têm o formato 123-456-7890; os da Meta são só dígitos."""
+    return "google" if "-" in account_id else "meta"
+
+
 class WindsorConnector:
     source = "windsor"
     sales_source = None  # Windsor.ai entrega dados de mídia; vendas confirmadas vêm do CRM (Fase 5)
     is_demo = False
 
-    def __init__(self, client: WindsorClient, accounts: list[dict[str, Any]], currency: str = "BRL"):
+    def __init__(self, client: WindsorClient, accounts: list[dict[str, Any]], currency: str = "BRL",
+                 allowed: set[str] | None = None):
         self.client = client
         self.currency = currency
+        # Escopo da instalação (BORGES_WINDSOR_ALLOWED_ACCOUNTS). Também restringe a descoberta e o teste
+        # de conexão: consultar todas as contas de uma chave grande é lento e lê dados fora do escopo.
+        self.allowed = allowed
         self.accounts: dict[str, set[str]] = defaultdict(set)
         for a in accounts:
             self.accounts[a["platform"]].add(_norm_account(a["platform"], a["external_id"]))
@@ -199,13 +208,13 @@ class WindsorConnector:
 
     def check(self) -> ConnectionStatus:
         try:
-            found = self.discover_accounts(days=7)
+            found = self.discover_accounts(days=3)
         except WindsorAuthError as exc:
             return ConnectionStatus(ok=False, detail=str(exc))
         except WindsorError as exc:
             return ConnectionStatus(ok=False, detail=str(exc))
         return ConnectionStatus(ok=True, can_read=True, can_write=False,
-                                detail=f"Leitura confirmada. {len(found)} conta(s) com dados nos últimos 7 dias.")
+                                detail=f"Leitura confirmada. {len(found)} conta(s) com dados nos últimos 3 dias.")
 
     def discover_accounts(self, days: int = 30, today: date | None = None) -> list[dict[str, Any]]:
         """Contas visíveis para a chave. Só aparecem contas com dados no período consultado."""
@@ -214,7 +223,15 @@ class WindsorConnector:
         end = today or date.today()
         out = []
         for platform, connector in PLATFORMS.items():
-            for r in self.client.query(connector, ACCOUNT_FIELDS[platform], end - timedelta(days=days), end):
+            scope = None
+            if self.allowed is not None:
+                scope = sorted(a for a in self.allowed if _platform_of(a) == platform)
+                if not scope:
+                    continue  # nenhuma conta permitida nesta plataforma: nem consulta
+            for r in self.client.query(connector, ACCOUNT_FIELDS[platform], end - timedelta(days=days), end,
+                                       scope):
+                if self.allowed is not None and _norm_account(platform, r.get("account_id")) not in self.allowed:
+                    continue
                 if r.get("account_id") is None:
                     continue
                 out.append({

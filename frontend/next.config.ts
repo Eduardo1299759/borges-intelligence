@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   output: "standalone",
+  experimental: {
+    // O padrão do Next é 30 s. Testar a chave e sincronizar consultam o Windsor.ai, que pode
+    // levar minutos para relatórios não cacheados; sem isso o painel mostraria erro no meio.
+    proxyTimeout: 300_000,
+  },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_URL}/api/:path*` }];
   },
