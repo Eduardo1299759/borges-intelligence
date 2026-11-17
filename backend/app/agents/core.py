@@ -13,9 +13,10 @@ from sqlalchemy.orm import Session
 
 from app.agents import data_intelligence, financial, performance_auditor, specialists
 from app.ai import narrator
-from app.decision import engine
+from app.decision import engine, sales_rules
 from app.decision.specialists import evaluate_entities
 from app.models import REC_ADJUST, REC_AWAITING, REC_INFO, AnalysisRun, Client, Recommendation, User
+from app.sales import intelligence as sales_intelligence
 from app.services import audit
 
 TOPICS = {
@@ -28,6 +29,8 @@ TOPICS = {
     "ad_cpl_outlier": ("anúncio", "anuncio", "criativo", "custo por lead", "cpl"),
     "ad_dilution": ("estrutura", "consolidar", "anúncios", "anuncios"),
     "conversion_value_missing": ("conversão", "conversao", "valor", "rastreamento", "google"),
+    "slow_response": ("atendimento", "resposta", "comercial", "vendas", "venda", "whatsapp", "cac"),
+    "crm_leads_gap": ("crm", "rastreamento", "tracking", "lead", "leads"),
 }
 
 # Com estes diagnósticos de campanha, os especialistas não opinam sobre anúncios: os dados são poucos
@@ -62,6 +65,8 @@ def analyze(db: Session, client: Client, user: User | None, question: str, start
     for snap, draft in zip(snapshots, campaign_drafts, strict=True):
         if draft.rule not in SUPPRESS_SPECIALISTS:
             specialist_drafts += evaluate_entities(snap, entities.get(snap.campaign_id, []), acc)
+    sales_summary = sales_intelligence.summary(db, client, start, end)
+    specialist_drafts += sales_rules.evaluate(sales_summary, acc)
     drafts = engine.prioritize(campaign_drafts + specialist_drafts, {s.campaign_id: s for s in snapshots})
 
     open_recs = {
@@ -99,8 +104,8 @@ def analyze(db: Session, client: Client, user: User | None, question: str, start
     answer = (
         f"Analisei {len(campaign_drafts)} campanha(s) de {period}"
         + (" com DADOS DEMONSTRATIVOS" if run.is_demo else "")
-        + (f", e os especialistas Meta e Google encontraram {len(specialist_drafts)} ponto(s) em anúncios e "
-           "grupos de anúncios" if specialist_drafts else "")
+        + (f", e os especialistas encontraram {len(specialist_drafts)} ponto(s) em anúncios, grupos de "
+           "anúncios, rastreamento ou processo comercial" if specialist_drafts else "")
         + f". {actionable} recomendação(ões) exigem sua aprovação e {len(drafts) - actionable} campanha(s) devem "
         "ser mantidas sem alteração."
     )
@@ -126,7 +131,7 @@ def analyze(db: Session, client: Client, user: User | None, question: str, start
         "finance": finance,
         "recommendation_ids": ids, "matched_ids": matched,
         "agents": ["Borges Core", "Data Intelligence", "Performance Auditor", "Meta Ads Specialist",
-                   "Google Ads Specialist", "Financial Intelligence"],
+                   "Google Ads Specialist", "Sales Intelligence", "Tracking & CRO", "Financial Intelligence"],
         "method": (f"Diagnóstico por regras determinísticas; resposta redigida por IA ({ai_info['model']}) "
                    "a partir desses fatos." if ai_info["used"] else "Regras determinísticas."),
     }

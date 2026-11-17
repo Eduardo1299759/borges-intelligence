@@ -6,7 +6,7 @@ export interface Client {
   id: number; name: string; segment: string | null; business_goal: string | null; timezone: string;
   currency: string; data_mode: "demo" | "live"; monthly_budget: string | null; target_cac: string | null;
   target_roas: string | null; gross_margin_pct: string | null; operation_level: number;
-  max_budget_change_pct: string; created_at: string;
+  max_budget_change_pct: string; created_at: string; write_enabled?: boolean;
 }
 
 export interface Evidence { metric: string; value: string; benchmark: string; period: string; source: string }
@@ -14,8 +14,10 @@ export interface Decision { decision: string; comment: string | null; user: stri
 export interface Check { check: string; passed: boolean; detail: string }
 export interface Execution {
   id: number; mode: string; status: string; checks: Check[]; verified: boolean; error: string | null;
-  before_state: { daily_budget?: number; ad_status?: string } | null;
-  after_state: { daily_budget?: number; ad_status?: string } | null;
+  before_state: { daily_budget?: number | null; ad_status?: string | null; ad_group_status?: string | null } | null;
+  after_state: { daily_budget?: number | null; ad_status?: string | null; ad_group_status?: string | null } | null;
+  request?: { platform: string; account: string; action: string; params: Record<string, unknown> } | null;
+  response?: { detail?: string } | null;
   finished_at: string | null;
 }
 

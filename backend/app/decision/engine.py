@@ -54,7 +54,7 @@ class CampaignSnapshot:
 
 @dataclass
 class Draft:
-    campaign_id: int
+    campaign_id: int | None  # None: recomendação da conta (ex.: processo comercial)
     agent: str
     rule: str
     title: str
@@ -319,7 +319,8 @@ def _budget_draft(s: CampaignSnapshot, acc: AccountContext, *, direction: int, r
 def prioritize(drafts: list[Draft], snapshots: dict[int, CampaignSnapshot]) -> list[Draft]:
     """Prioridade = participação no investimento x severidade da regra (impacto financeiro em jogo)."""
     for d in drafts:
-        share = d.spend_share if d.spend_share is not None else (snapshots[d.campaign_id].spend_share or 0.0)
+        share = d.spend_share if d.spend_share is not None else (
+            snapshots[d.campaign_id].spend_share or 0.0 if d.campaign_id in snapshots else 0.0)
         d.priority_score = int(round(min(100.0, share * 100 * d.severity)))
         d.priority = "alta" if d.priority_score >= 25 else "média" if d.priority_score >= 10 else "baixa"
     return sorted(drafts, key=lambda d: d.priority_score, reverse=True)

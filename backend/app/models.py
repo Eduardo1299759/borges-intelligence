@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -71,6 +72,8 @@ class Client(Base):
     # Governança de execução (seção 10).
     operation_level: Mapped[int] = mapped_column(Integer, default=2)
     max_budget_change_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("30"))
+    # Escrita real nas plataformas (via Windsor.ai). Desligada por padrão; só administradores ligam.
+    write_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -311,12 +314,16 @@ class Execution(Base):
     # Chave única: impede que a mesma recomendação seja executada duas vezes.
     idempotency_key: Mapped[str] = mapped_column(String(80), unique=True)
     mode: Mapped[str] = mapped_column(String(20))  # simulated | live
-    status: Mapped[str] = mapped_column(String(20))
+    # executing | completed | failed | awaiting_confirmation | awaiting_verification
+    status: Mapped[str] = mapped_column(String(30))
     checks: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
     before_state: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     after_state: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
     error: Mapped[str | None] = mapped_column(Text)
+    # Execução real: o que foi enviado à plataforma e a resposta (sem segredos).
+    request: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    response: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -448,3 +455,46 @@ class CompetitorAd(Base):
     format: Mapped[str | None] = mapped_column(String(40))
     first_seen: Mapped[date | None] = mapped_column(Date)
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LeadRecord(Base):
+    """Lead vindo do CRM, sem dados pessoais. ref_hash é um identificador pseudonimizado (só para não duplicar
+    na reimportação); nome, telefone, e-mail e documentos nunca são gravados."""
+
+    __tablename__ = "lead_records"
+    __table_args__ = (UniqueConstraint("client_id", "ref_hash"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"), index=True)
+    ref_hash: Mapped[str] = mapped_column(String(64))
+    date: Mapped[date] = mapped_column(Date, index=True)
+    # novo | contato | qualificado | proposta | venda | perdido
+    stage: Mapped[str] = mapped_column(String(20))
+    response_minutes: Mapped[int | None] = mapped_column(Integer)
+    lost_reason: Mapped[str | None] = mapped_column(String(200))
+    value: Mapped[Decimal | None] = mapped_column(Money)
+    source: Mapped[str] = mapped_column(String(30), default="crm_import")
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ImportRun(Base):
+    """Cada importação de planilha (pedidos ou leads), com o que entrou e o que ficou de fora."""
+
+    __tablename__ = "import_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # orders | leads
+    stats: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PageCheck(Base):
+    """Verificação de uma página de destino (rastreamento, celular, velocidade)."""
+
+    __tablename__ = "page_checks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    url: Mapped[str] = mapped_column(String(500))
+    result: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

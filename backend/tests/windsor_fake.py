@@ -61,6 +61,44 @@ class FakeWindsor:
     def __init__(self):
         self.requests: list[httpx.Request] = []
         self.fail_with: int | None = None  # força um status HTTP em todas as respostas
+        # Estado de escrita (ações): orçamento em centavos e status, como a plataforma guardaria.
+        self.budget_cents = {"c-meta-1": 2100}
+        self.ad_status: dict[str, str] = {}
+        self.group_status: dict[str, str] = {}
+        self.actions: list[dict] = []
+        self.writes_enabled = True  # False simula "write actions não habilitadas no time" (403)
+        self.confirm_increases = False  # True: aumento de orçamento volta com confirmation_token
+        self.stale_reads = 0  # releituras que ainda devolvem o valor antigo (cache do Windsor)
+        self._snapshot: dict | None = None
+
+    def _act(self, request: httpx.Request) -> httpx.Response:
+        import json as _json
+        body = _json.loads(request.content)
+        self.actions.append(body)
+        if not self.writes_enabled:
+            return httpx.Response(403, json={"error": "Write actions are not enabled for this team"})
+        action, params = body["action"], body.get("params", {})
+        before = {"budget": dict(self.budget_cents), "ad": dict(self.ad_status), "group": dict(self.group_status)}
+        if action == "set_campaign_budget":
+            cid, amount = params["campaign_id"], params["amount"]
+            if self.confirm_increases and amount > self.budget_cents.get(cid, 0) and not body.get("confirmation_token"):
+                return httpx.Response(200, json={"result": f"Prévia: orçamento de {cid} subirá para {amount}.",
+                                                 "confirmation_token": "tok-123"})
+            self.budget_cents[cid] = amount
+        elif action == "pause_ad":
+            self.ad_status[params["ad_id"]] = "paused"
+        elif action == "pause_ad_group":
+            self.group_status[params["ad_group_id"]] = "paused"
+        else:
+            return httpx.Response(400, json={"error": f"Unknown action {action}"})
+        self._snapshot = before
+        return httpx.Response(200, json={"result": f"{action} ok"})
+
+    def _state(self) -> dict:
+        if self.stale_reads > 0 and self._snapshot is not None:
+            self.stale_reads -= 1
+            return self._snapshot
+        return {"budget": self.budget_cents, "ad": self.ad_status, "group": self.group_status}
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -69,6 +107,12 @@ class FakeWindsor:
             return httpx.Response(400, json={"error": "Not authorized", "code": "unauthorized"})
         if self.fail_with:
             return httpx.Response(self.fail_with, text="upstream error")
+        if request.method == "POST" and request.url.path.endswith("/actions"):
+            return self._act(request)
+        response = self._read(request)
+        return response
+
+    def _read(self, request: httpx.Request) -> httpx.Response:
         connector = request.url.path.strip("/")
         fields = set(request.url.params["fields"].split(","))
         days = _days(request)
@@ -89,6 +133,14 @@ class FakeWindsor:
             rows = [google_adgroup_row(d) for d in days]
         else:
             rows = [google_campaign_row(d) for d in days]
+        state = self._state()
+        for r in rows:
+            if "campaign_daily_budget" in fields and r.get("campaign_id") in state["budget"]:
+                r["campaign_daily_budget"] = state["budget"][r["campaign_id"]]
+            if "effective_status" in fields and r.get("ad_id"):
+                r["effective_status"] = state["ad"].get(r["ad_id"], "ACTIVE").upper()
+            if "ad_group_status" in fields and r.get("ad_group_id"):
+                r["ad_group_status"] = state["group"].get(r["ad_group_id"], "ENABLED").upper()
         return httpx.Response(200, json={"data": rows})
 
     def client(self) -> httpx.Client:

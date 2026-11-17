@@ -87,6 +87,7 @@ class ClientOut(ClientBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     data_mode: str
+    write_enabled: bool = False
     operation_level: int
     created_at: datetime
 
@@ -119,6 +120,8 @@ class ExecutionOut(BaseModel):
     verified: bool
     error: str | None
     finished_at: datetime | None
+    request: dict[str, Any] | None = None
+    response: dict[str, Any] | None = None
 
 
 class RecommendationOut(BaseModel):

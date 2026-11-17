@@ -86,7 +86,9 @@ def evaluate_entities(s: CampaignSnapshot, entities: list[EntityStats], acc: Acc
                     ev("Custo por lead da campanha", brl(camp_cpl))]
             if leads == 0 and e.spend >= NO_RESULT_CPL_MULTIPLE * camp_cpl and share >= NO_RESULT_MIN_SHARE:
                 multiple = e.spend / camp_cpl
-                pausable = meta and e.status != "paused"
+                pausable = e.status != "paused"
+                action = ("pause_ad" if meta else "pause_ad_group") if pausable else "manual_review"
+                payload = ({"ad_id": e.ad_id} if meta else {"ad_set_id": e.ad_set_id}) if pausable else {}
                 drafts.append(Draft(
                     s.campaign_id, agent, "ad_no_results",
                     f"{'Pausar' if pausable else 'Revisar'} {e.short} em “{s.name}”: gasto sem resultado",
@@ -96,8 +98,8 @@ def evaluate_entities(s: CampaignSnapshot, entities: list[EntityStats], acc: Acc
                     "por sinais de engajamento que não viram conversa.",
                     f"Retirando o {unit}, a verba volta para os demais, que convertem; o custo por lead da "
                     "campanha deve cair sem perda de volume.",
-                    "pause_ad" if pausable else "manual_review",
-                    (f"Pausar o anúncio {e.label}. Manter os demais anúncios e o orçamento da campanha." if pausable
+                    action,
+                    (f"Pausar o {unit} {e.label}. Manter os demais e o orçamento da campanha." if pausable
                      else f"Revisar o {unit} {e.label}: pausar ou trocar a abordagem."),
                     f"Economia de até {brl(e.spend / max(1, (s.kpis.get('days') or 30)) )} por dia redirecionados "
                     "aos anúncios que convertem. O ganho em leads é uma hipótese, não uma garantia.",
@@ -109,7 +111,7 @@ def evaluate_entities(s: CampaignSnapshot, entities: list[EntityStats], acc: Acc
                                         f"limite {num(NO_RESULT_CPL_MULTIPLE, 0)}x")],
                     alternatives=["O lead pode ter sido atribuído a outro anúncio do mesmo conjunto.",
                                   "Anúncio recente, ainda em aprendizado."],
-                    action_payload={"ad_id": e.ad_id} if pausable else {},
+                    action_payload=payload,
                     ad_set_id=e.ad_set_id, ad_id=e.ad_id, spend_share=e.spend / account_spend,
                 ))
             elif (leads >= OUTLIER_MIN_LEADS and share >= OUTLIER_MIN_SHARE and len(items) >= 2

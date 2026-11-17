@@ -134,12 +134,17 @@ métricas agregadas; nenhum dado pessoal de leads.
 
 ## Execução e segurança
 
-Ações executáveis: ajuste de orçamento e pausa de anúncio. Aprovar uma recomendação de orçamento dispara, nesta ordem: conector de escrita disponível, nível de
+Ações executáveis: orçamento diário de campanha e pausa de anúncio (Meta), pausa de grupo (Google). Em
+clientes de demonstração a execução é simulada; em clientes reais vai pelo Windsor.ai (`connectors/windsor_write.py`)
+somente com a escrita ligada pelo administrador. Aprovar uma recomendação de orçamento dispara, nesta ordem: conector de escrita disponível, nível de
 operação, conta correta, estado atual igual ao da recomendação, limite financeiro do cliente, valor
 válido. Qualquer falha registra a execução como **falhou** e nada é alterado. Em caso de sucesso, o
 valor é relido antes de marcar **concluída**. Uma chave de idempotência única impede dupla execução.
 
-Para clientes reais não há conector de escrita: a execução é bloqueada e registrada, nunca fingida.
+Em cliente real, a execução envia a ação ao Windsor.ai e relê o valor. Se a plataforma pedir confirmação
+(aumento de gasto), a execução espera uma segunda confirmação humana; se o dado relido ainda não mostra a
+mudança (cache), fica "aguardando verificação". Sem escrita ligada, a execução é bloqueada e registrada,
+nunca fingida.
 
 Auditoria: cada registro guarda o hash do anterior; `GET /api/audit/verify` recalcula a cadeia. No
 PostgreSQL um gatilho bloqueia `UPDATE`/`DELETE`. Isso torna adulteração evidente; não protege contra

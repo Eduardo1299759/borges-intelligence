@@ -69,7 +69,8 @@ def test_google_groups_and_conversion_value():
     drafts = evaluate_entities(camp("google", revenue=0.0), [group(1, 880, 100), group(2, 120, 0)], acc())
     assert rules(drafts) == ["ad_no_results", "conversion_value_missing"]
     no_result = next(d for d in drafts if d.rule == "ad_no_results")
-    assert no_result.action_type == "manual_review" and no_result.ad_id is None and no_result.ad_set_id == 2
+    assert no_result.action_type == "pause_ad_group" and no_result.action_payload == {"ad_set_id": 2}
+    assert no_result.ad_id is None and no_result.ad_set_id == 2
     # receita indisponível (None) não é o mesmo que zero: não acusa
     assert rules(evaluate_entities(camp("google", revenue=None), [group(1, 1000, 100)], acc())) == []
 

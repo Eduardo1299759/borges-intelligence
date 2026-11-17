@@ -17,8 +17,29 @@ function toForm(c: Client): Form {
     gross_margin_pct: c.gross_margin_pct ?? "", operation_level: String(c.operation_level), max_budget_change_pct: c.max_budget_change_pct };
 }
 
+function WriteToggle({ c, onChanged }: { c: Client; onChanged: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  async function toggle() {
+    setError(null);
+    let body: { enabled: boolean; confirm_name?: string } = { enabled: !c.write_enabled };
+    if (!c.write_enabled) {
+      const name = window.prompt(`Ligar a ESCRITA REAL nas contas de anúncio de "${c.name}"?\n\nAlterações aprovadas passarão a ser enviadas de verdade à Meta e ao Google pelo Windsor.ai, sempre após aprovação e com verificação.\n\nDigite o nome do cliente para confirmar:`);
+      if (name === null) return;
+      body = { enabled: true, confirm_name: name };
+    }
+    try { await api(`/clients/${c.id}/write-access`, { method: "PUT", body }); onChanged(); }
+    catch (e) { setError((e as Error).message); }
+  }
+  return (
+    <span className="inline-flex flex-col items-end">
+      <Button variant={c.write_enabled ? "danger" : "secondary"} onClick={toggle}>{c.write_enabled ? "Desligar escrita real" : "Ligar escrita real"}</Button>
+      {error && <span className="mt-1 max-w-56 text-right text-xs text-rose-700">{error}</span>}
+    </span>
+  );
+}
+
 export default function ClientsPage() {
-  const { clients, client: selected, selectClient, reloadClients, canManage } = useApp();
+  const { clients, client: selected, selectClient, reloadClients, canManage, user } = useApp();
   const [editing, setEditing] = useState<Client | "new" | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -117,7 +138,7 @@ export default function ClientsPage() {
                       <p className="font-medium text-navy-900">{c.name}</p>
                       <p className="text-xs text-muted">{c.segment ?? "Segmento não informado"}</p>
                     </td>
-                    <td className="px-5 py-3">{c.data_mode === "demo" ? <DemoBadge /> : <Badge tone="green">Real</Badge>}</td>
+                    <td className="px-5 py-3">{c.data_mode === "demo" ? <DemoBadge /> : <span className="flex flex-wrap gap-1"><Badge tone="green">Real</Badge>{c.write_enabled ? <Badge tone="red">Escrita real ligada</Badge> : <Badge>Somente leitura</Badge>}</span>}</td>
                     <td className="px-5 py-3">{money(c.target_cac, c.currency)}</td>
                     <td className="px-5 py-3">{c.target_roas ? `${dec(c.target_roas)}x` : "—"}</td>
                     <td className="px-5 py-3">{c.gross_margin_pct ? `${dec(c.gross_margin_pct, 0)}%` : "—"}</td>
@@ -126,6 +147,7 @@ export default function ClientsPage() {
                       <div className="flex justify-end gap-2">
                         {selected?.id === c.id ? <Badge tone="blue">Selecionado</Badge> : <Button variant="secondary" onClick={() => selectClient(c.id)}>Selecionar</Button>}
                         {canManage && <Button variant="secondary" onClick={() => open(c)}>Editar</Button>}
+                        {user.role === "admin" && c.data_mode === "live" && <WriteToggle c={c} onChanged={reloadClients} />}
                       </div>
                     </td>
                   </tr>

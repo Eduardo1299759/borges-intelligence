@@ -7,6 +7,10 @@ import type { Recommendation } from "@/lib/types";
 import { Badge, Button, DemoBadge, Notice, StatusBadge, inputClass } from "./ui";
 
 const PRIORITY_TONE = { alta: "red", média: "amber", baixa: "neutral" } as const;
+const EX_STATUS: Record<string, string> = {
+  completed: "concluída", failed: "falhou", executing: "executando",
+  awaiting_confirmation: "aguardando sua confirmação", awaiting_verification: "aguardando verificação",
+};
 const DECISION_LABEL: Record<string, string> = {
   approved: "Aprovou", rejected: "Rejeitou", adjustment_requested: "Solicitou ajuste",
 };
@@ -34,7 +38,14 @@ export function RecommendationCard({
   const p = rec.action_payload;
   const isBudget = rec.action_type === "adjust_budget" && p.from !== undefined && p.to !== undefined;
   const isPause = rec.action_type === "pause_ad" && p.ad_id !== undefined;
-  const executable = isBudget || isPause;
+  const isPauseGroup = rec.action_type === "pause_ad_group";
+  const executable = isBudget || isPause || isPauseGroup;
+  const [exBusy, setExBusy] = useState(false);
+  async function exAction(id: number, what: "confirm" | "verify") {
+    setExBusy(true); setError(null);
+    try { await api(`/clients/${clientId}/executions/${id}/${what}`, { method: "POST" }); onChanged?.(); }
+    catch (e) { setError((e as Error).message); } finally { setExBusy(false); }
+  }
   const AD_STATUS: Record<string, string> = { active: "ativo", paused: "pausado" };
 
   async function decide(decision: "approve" | "reject" | "request_adjustment") {
@@ -122,8 +133,16 @@ export function RecommendationCard({
                 ({p.change_pct! > 0 ? "+" : ""}{p.change_pct}%)
               </p>
               <p className="mt-1 text-xs text-muted">
-                {rec.is_demo ? "Execução simulada: altera apenas a campanha demonstrativa dentro do Borges." : "Cliente real: não há conector de escrita autorizado; a execução será bloqueada."}
+                {rec.is_demo ? "Execução simulada: altera apenas a campanha demonstrativa dentro do Borges." : "Cliente real: executado pelo Windsor.ai somente se a escrita real estiver ligada para o cliente; caso contrário, é bloqueado."}
               </p>
+            </div>
+          )}
+
+          {isPauseGroup && (
+            <div className="rounded-lg border border-azure-100 bg-azure-50 px-4 py-3 text-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-azure-700">Prévia da mudança</p>
+              <p className="mt-1 text-navy-900">Grupo de anúncios “{rec.ad_set_name}”: <strong>ativo</strong> → <strong>pausado</strong></p>
+              <p className="mt-1 text-xs text-muted">{rec.is_demo ? "Execução simulada em dados demonstrativos." : "Cliente real: executado pelo Windsor.ai somente se a escrita real estiver ligada para o cliente."}</p>
             </div>
           )}
 
@@ -134,7 +153,7 @@ export function RecommendationCard({
                 Anúncio “{rec.ad_name}”: <strong>{AD_STATUS[rec.ad_status ?? ""] ?? rec.ad_status ?? "—"}</strong> → <strong>pausado</strong>
               </p>
               <p className="mt-1 text-xs text-muted">
-                {rec.is_demo ? "Execução simulada: altera apenas o anúncio demonstrativo dentro do Borges." : "Cliente real: não há conector de escrita autorizado; a execução será bloqueada."}
+                {rec.is_demo ? "Execução simulada: altera apenas o anúncio demonstrativo dentro do Borges." : "Cliente real: executado pelo Windsor.ai somente se a escrita real estiver ligada para o cliente; caso contrário, é bloqueado."}
               </p>
             </div>
           )}
@@ -142,9 +161,23 @@ export function RecommendationCard({
           {rec.executions.map((ex) => (
             <div key={ex.id} className="rounded-lg border border-line px-4 py-3 text-sm">
               <p className="font-medium text-navy-900">
-                Execução #{ex.id} · {ex.mode === "simulated" ? "simulada" : "real"} · {ex.status === "completed" ? "concluída" : "falhou"}
+                Execução #{ex.id} · {ex.mode === "simulated" ? "simulada" : "real (Windsor.ai)"} · {EX_STATUS[ex.status] ?? ex.status}
                 {ex.verified && " · verificada por releitura"}
               </p>
+              {ex.request && <p className="mt-1 text-xs text-muted">Enviado: {ex.request.action} na conta {ex.request.account} · {JSON.stringify(ex.request.params)}</p>}
+              {ex.response?.detail && <p className="mt-1 text-xs text-muted">Resposta da plataforma: {ex.response.detail}</p>}
+              {ex.before_state?.ad_group_status !== undefined && (
+                <p className="mt-1 text-muted">Status do grupo: {ex.before_state.ad_group_status ?? "—"} → {ex.after_state?.ad_group_status ?? "aguardando releitura"}</p>
+              )}
+              {canDecide && ex.status === "awaiting_confirmation" && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button disabled={exBusy} onClick={() => exAction(ex.id, "confirm")}>Confirmar na plataforma</Button>
+                  <span className="text-xs text-muted">A plataforma pediu uma confirmação extra (aumento de gasto).</span>
+                </div>
+              )}
+              {canDecide && ex.status === "awaiting_verification" && (
+                <div className="mt-2"><Button variant="secondary" disabled={exBusy} onClick={() => exAction(ex.id, "verify")}>Verificar agora</Button></div>
+              )}
               {ex.before_state?.daily_budget !== undefined && ex.after_state?.daily_budget !== undefined && (
                 <p className="mt-1 text-muted">Orçamento diário: {money(ex.before_state.daily_budget, currency)} → {money(ex.after_state.daily_budget, currency)}</p>
               )}

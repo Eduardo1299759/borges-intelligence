@@ -3,7 +3,7 @@
 Plataforma de inteligência para gestão, análise e otimização de tráfego pago, operada por agentes
 especializados coordenados pelo **Borges Core**.
 
-**Estado atual: Fases 1 a 4 implementadas**, com IA opcional da Anthropic. O conector Windsor.ai segue a documentação oficial e foi
+**Estado atual: Fases 1 a 5 implementadas**, com IA opcional da Anthropic (desligada por padrão, sem custo). O conector Windsor.ai segue a documentação oficial e foi
 conferido com linhas reais; falta apenas uma sincronização completa com uma chave real. Veja [docs/PHASES.md](docs/PHASES.md)
 para o que existe, o que é simulado e o que vem a seguir, e [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 para as decisões técnicas.
@@ -61,7 +61,14 @@ docker compose up --build                  # http://localhost:3000
 Para restringir a instalação a algumas contas, defina `BORGES_WINDSOR_ALLOWED_ACCOUNTS` (IDs separados por
 vírgula): as demais contas da chave deixam de aparecer e não podem ser lidas.
 
-Sem CRM (Fase 5) não há vendas confirmadas: CAC real e ROAS confirmado aparecem como indisponíveis.
+Sem vendas confirmadas, CAC real e ROAS confirmado aparecem como indisponíveis: importe pedidos em
+**Inteligência comercial** (CSV do CRM ou do sistema de pedidos; dados pessoais são descartados).
+
+### Escrita real nas plataformas
+
+Desligada por padrão. Para ligar num cliente real: habilite "write actions" no Windsor.ai (Team management),
+e em **Clientes e contas** use "Ligar escrita real" (somente administradores, digitando o nome do cliente).
+Toda alteração continua exigindo aprovação na Central de aprovação e só é concluída após releitura.
 
 ## Testes
 

@@ -15,12 +15,19 @@ fake = FakeWindsor()
 
 
 class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):  # noqa: N802
-        resp = fake(httpx.Request("GET", f"http://fake{self.path}"))
+    def _reply(self, request: httpx.Request) -> None:
+        resp = fake(request)
         self.send_response(resp.status_code)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(resp.content)
+
+    def do_GET(self):  # noqa: N802
+        self._reply(httpx.Request("GET", f"http://fake{self.path}"))
+
+    def do_POST(self):  # noqa: N802  (ações de escrita)
+        body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        self._reply(httpx.Request("POST", f"http://fake{self.path}", content=body))
 
     def log_message(self, *args):  # silencioso: a URL contém a chave
         pass

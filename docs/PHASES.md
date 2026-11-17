@@ -107,8 +107,35 @@
 - Teste A/B nativo da Meta (exige escrita autorizada, Fase 5); o teste entre anúncios do mesmo conjunto
   indica, mas não prova, causalidade.
 
-## Fase 5 — Comercial e execução
-CRM e vendas reais, tracking/CRO, conectores de escrita autorizados, reversão, nível 3 com limites.
+## Fase 5 — Comercial, tracking e execução ✅ (escrita real validada só contra o Windsor.ai falso)
+
+**Entregue**
+- Importação de pedidos e leads do CRM/sistema de pedidos em CSV, com prévia antes de gravar. Colunas de
+  nome, telefone, e-mail, documento e endereço são descartadas na leitura (LGPD); o ID do lead vira hash.
+  Vendas entram como confirmadas e destravam CAC real, ROAS confirmado e lucro para clientes reais.
+  Associação à campanha por ID, nome ou utm_campaign; o que não casa é listado.
+- Sales Intelligence: funil por etapa, qualidade por origem (leads da plataforma x CRM), custo por venda,
+  tempo de primeira resposta e motivos de perda. Regra nova: atendimento lento.
+- Tracking & CRO: verificação de página (Pixel, GTM, GA4, tag do Google Ads, celular, velocidade, caminho de
+  conversão) com proteção contra acesso à rede interna; auditoria cruzando atribuição, CRM e UTMs; UTMs
+  padronizadas para Meta e Google. Regra nova: leads da plataforma que não chegam ao CRM.
+- Escrita real pelo Windsor.ai: orçamento diário de campanha e pausa de anúncio (Meta) e pausa de grupo
+  (Google). Desligada por padrão; só administrador liga, digitando o nome do cliente. Se a plataforma pede
+  confirmação (aumento de gasto), exige uma segunda confirmação humana. Só é "concluída" após releitura;
+  se o cache do Windsor ainda não mostra a mudança, fica "aguardando verificação" com botão para verificar.
+
+**Como é verificado:** `tests/test_phase5.py` (importação e LGPD, funil, regras, proteção da verificação de
+página, escrita: bloqueio, sucesso, cache atrasado, confirmação, escrita não habilitada, pausa de grupo),
+`e2e/phase5.cjs` e `e2e/layout.cjs` (sem rolagem horizontal em 1440 e 390 px).
+
+**Pendente**
+- Escrita real contra as contas de verdade: depende de você ligar a escrita no Windsor.ai (Team management)
+  e no Borges. O campo de confirmação de aumento de gasto segue a ferramenta oficial do Windsor.ai, pois a
+  documentação REST não o descreve.
+- Orçamento de campanhas do Google: o campo do Windsor.ai não deixa claro se é diário; essas recomendações
+  continuam como revisão manual.
+- Conexão direta com CRMs (HubSpot, Pipedrive, RD Station etc.), API de Conversões e conversões offline.
+- Reversão com um clique (o valor anterior fica registrado para reversão manual).
 
 ## Fase 6 — Automações e aprendizado
 Agendador por cliente (aqui entram Redis e fila), relatórios e PDF, alertas, medição do efeito das

@@ -16,13 +16,14 @@ const NAV = [
   { href: "/criativos", label: "Creative Studio" },
   { href: "/experimentos", label: "Experimentos" },
   { href: "/radar", label: "Radar competitivo" },
+  { href: "/comercial", label: "Inteligência comercial" },
+  { href: "/tracking", label: "Tracking & CRO" },
   { href: "/auditoria", label: "Auditoria" },
   { href: "/configuracoes", label: "Configurações" },
 ];
 
 // Áreas previstas que ainda não existem. Ficam visíveis como roteiro, nunca como tela vazia.
 const ROADMAP = [
-  { label: "Inteligência comercial", phase: 5 },
   { label: "Relatórios", phase: 6 },
 ];
 
