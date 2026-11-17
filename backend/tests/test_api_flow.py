@@ -263,3 +263,19 @@ def test_user_changes_own_login_and_password(db):
     log = http.get("/api/audit").json()
     change = next(e for e in log if e["action"] == "auth.credentials_changed")
     assert "Qwect" not in str(change) and change["details"]["changes"][0]["to"] == "borgesoeduardo"
+
+
+def test_clients_work_without_system_timezone_database(admin, monkeypatch):
+    """Windows não tem banco de fusos do sistema: o pacote tzdata precisa bastar."""
+    import zoneinfo
+    monkeypatch.setattr(zoneinfo, "TZPATH", ())
+    zoneinfo.reset_tzpath(to=[])
+    zoneinfo.ZoneInfo.clear_cache()
+    try:
+        created = admin.post("/api/clients", json={"name": "Sem tz do sistema", "data_mode": "live"})
+        assert created.status_code == 201, created.text
+        assert admin.get("/api/clients").status_code == 200
+        assert admin.post("/api/clients", json={"name": "Fuso ruim", "timezone": "Marte/Base"}).status_code == 422
+    finally:
+        zoneinfo.reset_tzpath()
+        zoneinfo.ZoneInfo.clear_cache()

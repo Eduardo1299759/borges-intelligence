@@ -61,21 +61,25 @@ class ClientBase(BaseModel):
     operation_level: Literal[1, 2] = 2
     max_budget_change_pct: Decimal = Field(default=Decimal("30"), ge=0, le=100)
 
+
+class ClientIn(ClientBase):
+    """Entrada: valida o fuso. A saída não revalida: um cliente já gravado sempre pode ser listado."""
+
     @field_validator("timezone")
     @classmethod
     def _tz(cls, v: str) -> str:
         try:
-            ZoneInfo(v)
+            ZoneInfo(v)  # no Windows, depende do pacote tzdata (o sistema não traz o banco de fusos)
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise ValueError("Fuso horário inválido.") from exc
         return v
 
 
-class ClientCreate(ClientBase):
+class ClientCreate(ClientIn):
     data_mode: Literal["demo", "live"] = "demo"
 
 
-class ClientUpdate(ClientBase):
+class ClientUpdate(ClientIn):
     pass
 
 
