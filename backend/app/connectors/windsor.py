@@ -7,7 +7,10 @@ Este módulo tem duas partes:
   formato da requisição.
 - `WindsorConnector`: normalização para o contrato do Borges (`connectors/base.py`).
 
-Os nomes de campos abaixo foram conferidos contra o catálogo real do Windsor.ai (Meta e Google Ads).
+Os nomes de campos foram conferidos contra o catálogo real do Windsor.ai (Meta e Google Ads). O formato
+da requisição segue a documentação oficial (https://windsor.ai/api-documentation/): autenticação apenas
+por `api_key` na query string (cabeçalhos não são aceitos), `date_from`/`date_to`, `fields` e
+`select_accounts` separados por vírgula; resposta {"data": [...]}; limite de 600 requisições/minuto.
 
 Decisões de normalização (todas testadas em tests/test_windsor.py):
 - Meta devolve `campaign_daily_budget` em centavos -> dividido por 100.
@@ -107,17 +110,41 @@ class WindsorClient:
                 # type(exc).__name__ apenas: a mensagem do httpx inclui a URL, que contém a chave.
                 last = f"falha de rede ({type(exc).__name__})"
             else:
-                if resp.status_code in (401, 403):
+                code, detail = self._error(resp)
+                # Verificado na API real: chave ausente/inválida responde HTTP 400 com code "unauthorized"
+                # (a documentação cita 401/403, que também são tratados).
+                if resp.status_code in (401, 403) or code in ("unauthorized", "authentication_error",
+                                                              "permission_denied"):
                     raise WindsorAuthError("Windsor.ai recusou a chave de API (não autorizada).")
                 if resp.status_code == 429 or resp.status_code >= 500:
                     last = f"HTTP {resp.status_code}"
                 elif resp.status_code >= 400:
-                    raise WindsorError(f"Windsor.ai rejeitou a consulta a {connector} (HTTP {resp.status_code}).")
+                    raise WindsorError(f"Windsor.ai rejeitou a consulta a {connector} (HTTP {resp.status_code})"
+                                       + (f": {detail}" if detail else "."))
                 else:
                     return self._rows(resp, connector)
             if attempt < self.MAX_ATTEMPTS:
                 self._sleep(2 ** attempt)
         raise WindsorError(f"Windsor.ai indisponível para {connector} após {self.MAX_ATTEMPTS} tentativas ({last}).")
+
+    def _error(self, resp: httpx.Response) -> tuple[str | None, str | None]:
+        """Extrai (código, mensagem) do corpo de erro. Formatos vistos: {"error": "...", "code": "..."}
+        e {"error": {"code": "...", "message": "..."}}. A mensagem é truncada e nunca carrega a chave."""
+        if resp.status_code < 400:
+            return None, None
+        try:
+            body = resp.json()
+        except ValueError:
+            return None, None
+        if not isinstance(body, dict):
+            return None, None
+        err = body.get("error")
+        if isinstance(err, dict):
+            code, message = err.get("code"), err.get("message")
+        else:
+            code, message = body.get("code"), err
+        message = str(message)[:200].replace(self._api_key, "***") if message else None
+        return (str(code).lower() if code else None), message
 
     @staticmethod
     def _rows(resp: httpx.Response, connector: str) -> list[dict[str, Any]]:

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import current_user
 from app.connectors.windsor import WindsorClient, WindsorConnector, WindsorError
 from app.core import crypto
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.models import Client, Integration, SyncRun, User
 from app.schemas import AccountsIn, SyncIn, WindsorKeyIn
@@ -92,9 +93,11 @@ def discover_accounts(client_id: int, user: User = Depends(current_user), db: Se
     client = _live_client(db, user, client_id)
     integration = _integration_or_404(db, client)
     try:
-        return sync.windsor_connector(client, integration).discover_accounts(days=30)
+        found = sync.windsor_connector(client, integration).discover_accounts(days=30)
     except (WindsorError, crypto.EncryptionUnavailable) as exc:
         raise HTTPException(502, str(exc)) from exc
+    allowed = get_settings().allowed_accounts()
+    return [a for a in found if allowed is None or a["external_id"] in allowed]
 
 
 @router.put("/integration/windsor/accounts")
@@ -103,6 +106,10 @@ def select_accounts(client_id: int, body: AccountsIn, user: User = Depends(curre
     require_role(user, "admin", "manager")
     client = _live_client(db, user, client_id)
     integration = _integration_or_404(db, client)
+    allowed = get_settings().allowed_accounts()
+    outside = [a.external_id for a in body.accounts if allowed is not None and a.external_id not in allowed]
+    if outside:
+        raise HTTPException(422, f"Conta(s) fora do escopo permitido nesta instalação: {', '.join(outside)}.")
     unique = {(a.platform, a.external_id): a.model_dump() for a in body.accounts}
     integration.accounts = list(unique.values())
     audit.record(db, action="integration.accounts_selected", actor=user, client_id=client.id,

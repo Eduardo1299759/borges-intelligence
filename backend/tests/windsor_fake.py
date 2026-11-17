@@ -65,7 +65,8 @@ class FakeWindsor:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if request.url.params.get("api_key") != VALID_KEY:
-            return httpx.Response(401, json={"error": "Invalid API key"})
+            # Resposta idêntica à observada na API real para chave ausente ou inválida.
+            return httpx.Response(400, json={"error": "Not authorized", "code": "unauthorized"})
         if self.fail_with:
             return httpx.Response(self.fail_with, text="upstream error")
         connector = request.url.path.strip("/")

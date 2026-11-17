@@ -51,8 +51,8 @@
 - Todos usam um Windsor.ai falso cujas linhas reproduzem o formato real observado.
 
 **Pendente**
-- Uma sincronização contra a API real do Windsor.ai, com uma chave real. Até lá, o formato da requisição
-  REST é uma suposição isolada em um único método.
+- Uma sincronização completa contra a API real do Windsor.ai, com uma chave real. O formato da requisição
+  já foi conferido na documentação oficial e a resposta de erro de autenticação, na API real.
 - Dimensões (dispositivo, posicionamento, região, horário), GA4 e Search Console.
 - Vendas confirmadas para clientes reais (CRM, Fase 5): sem elas, CAC real e ROAS confirmado ficam
   indisponíveis e as regras de eficiência não rodam.

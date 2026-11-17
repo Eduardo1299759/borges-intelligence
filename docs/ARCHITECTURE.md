@@ -77,14 +77,26 @@ A cada sincronização o investimento por anúncio/grupo é somado e comparado a
 (tolerância de 1%). Divergências, lacunas, dados com mais de 36 horas e falhas aparecem em
 “Qualidade dos dados” no dashboard e nas análises.
 
+**O que foi verificado e como**
+- Formato da requisição (`/{conector}?api_key=…&date_from=…&date_to=…&fields=…&select_accounts=a,b`),
+  resposta `{"data": [...]}` e limite de 600 requisições/minuto: documentação oficial da API do Windsor.ai.
+  A autenticação só é aceita na query string.
+- Chave ausente ou inválida: a API real responde **HTTP 400** com `{"error":"Not authorized","code":"unauthorized"}`
+  (a documentação cita 401). O conector trata os dois.
+- Nomes de campos: catálogo real do Windsor.ai.
+- Normalização e reconciliação: conferidas com linhas reais de contas Meta (soma dos anúncios igual ao
+  total da campanha em investimento e em conversas). Casos reais cobertos em teste: orçamento no conjunto
+  (`campaign_daily_budget` nulo) e compra atribuída a campanha pausada sem entrega no dia.
+
 **Pendências conhecidas do conector**
-- O formato da requisição REST (`/{conector}?api_key=…&date_from=…&date_to=…&fields=…&select_accounts=…`)
-  não foi validado contra a API real. Está isolado em `WindsorClient.query`. Se o parâmetro de filtro de
-  contas estiver errado, o efeito é só de desempenho: o descarte de contas alheias é feito no Borges.
-- Os nomes de campos foram conferidos no catálogo real do Windsor.ai.
+- Uma sincronização completa pela API REST com uma chave real ainda não foi executada.
+- Linhas reais de Google Ads das contas em uso não foram conferidas (sem entrega no dia amostrado).
 - Datas vêm no fuso da conta de anúncios; não há conversão para o fuso do cliente.
 - A descoberta de contas só lista contas com dados nos últimos 30 dias.
 - A sincronização é síncrona (dentro da requisição). Fila e agendamento entram na Fase 6.
+
+`BORGES_WINDSOR_ALLOWED_ACCOUNTS` (opcional) limita, para a instalação inteira, quais contas podem ser
+vistas, selecionadas e lidas — útil quando a chave enxerga contas fora do escopo de trabalho.
 
 Credenciais: cifradas com Fernet (`core/crypto.py`), chave em `BORGES_ENCRYPTION_KEY`, fora do banco.
 A API devolve apenas os 4 últimos caracteres. Trocar ou perder a chave exige recadastrar as credenciais.

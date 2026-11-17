@@ -1,6 +1,9 @@
 import os
 
 os.environ.setdefault("BORGES_ENV", "test")
+# Os testes não podem herdar o backend/.env do desenvolvedor.
+os.environ["BORGES_WINDSOR_ALLOWED_ACCOUNTS"] = ""
+os.environ["BORGES_WINDSOR_BASE_URL"] = "https://windsor.invalid"
 os.environ.setdefault("BORGES_SECRET_KEY", "test-secret-key-not-for-production-0123456789")
 from cryptography.fernet import Fernet  # noqa: E402
 

@@ -14,6 +14,7 @@ from app.connectors.base import ReadConnector
 from app.connectors.demo import DemoConnector
 from app.connectors.windsor import WindsorClient, WindsorConnector, WindsorError
 from app.core import crypto
+from app.core.config import get_settings
 from app.models import Client, Integration, SyncRun, User
 from app.services import audit
 from app.services.ingestion import ingest, reconcile_levels
@@ -31,7 +32,9 @@ def get_integration(db: Session, client: Client, provider: str = "windsor") -> I
 
 def windsor_connector(client: Client, integration: Integration) -> WindsorConnector:
     api_key = crypto.decrypt(integration.credentials_encrypted)
-    return WindsorConnector(WindsorClient(api_key), integration.accounts or [], currency=client.currency)
+    allowed = get_settings().allowed_accounts()
+    accounts = [a for a in integration.accounts or [] if allowed is None or a["external_id"] in allowed]
+    return WindsorConnector(WindsorClient(api_key), accounts, currency=client.currency)
 
 
 def _connector_for(db: Session, client: Client) -> tuple[ReadConnector, Integration | None]:

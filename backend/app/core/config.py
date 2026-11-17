@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     # Chave Fernet para cifrar credenciais de integrações. Sem ela, credenciais não podem ser salvas.
     encryption_key: str = ""
     windsor_base_url: str = "https://connectors.windsor.ai"
+    # Opcional: IDs de contas (separados por vírgula) que esta instalação pode ler pelo Windsor.ai.
+    # Vazio = todas as contas da chave. Útil quando a chave enxerga contas fora do escopo de trabalho.
+    windsor_allowed_accounts: str = ""
+
+    def allowed_accounts(self) -> set[str] | None:
+        ids = {a.strip() for a in self.windsor_allowed_accounts.split(",") if a.strip()}
+        return ids or None
     access_token_minutes: int = 480
     cookie_name: str = "borges_session"
     cookie_secure: bool = False

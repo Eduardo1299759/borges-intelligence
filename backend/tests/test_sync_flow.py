@@ -189,3 +189,17 @@ def test_demo_breakdown_sums_exactly_to_campaign(admin, demo_client, db):
         detail = db.execute(select(func.sum(BreakdownDaily.spend), func.sum(BreakdownDaily.leads))
                             .where(BreakdownDaily.campaign_id == camp_id)).one()
         assert (float(detail[0]), detail[1]) == (float(spend), leads)
+
+
+def test_installation_wide_account_allowlist(admin, live, fake, monkeypatch):
+    """BORGES_WINDSOR_ALLOWED_ACCOUNTS restringe o que pode ser visto, escolhido e lido."""
+    from app.core.config import get_settings
+    cid = live["id"]
+    connect(admin, cid)  # seleção feita antes de o escopo ser restringido
+    monkeypatch.setattr(get_settings(), "windsor_allowed_accounts", f"{GOOGLE_A}, 999")
+    found = admin.get(f"/api/clients/{cid}/integration/windsor/accounts").json()
+    assert [a["external_id"] for a in found] == [GOOGLE_A]
+    r = admin.put(f"/api/clients/{cid}/integration/windsor/accounts", json={"accounts": ACCOUNTS})
+    assert r.status_code == 422 and META_A in r.json()["detail"]
+    run = admin.post(f"/api/clients/{cid}/sync", json={"days": 5}).json()
+    assert run["status"] == "completed" and run["stats"]["campaigns"] == 1  # só a conta Google permitida

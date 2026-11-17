@@ -47,10 +47,14 @@ def test_query_sends_expected_request_and_accepts_both_response_shapes():
     assert "select_accounts" not in seen[1].url.params
 
 
-@pytest.mark.parametrize("status", [401, 403])
-def test_invalid_key_is_an_auth_error_and_is_not_retried(status):
+@pytest.mark.parametrize("status,body", [
+    (400, {"error": "Not authorized", "code": "unauthorized"}),  # o que a API real devolve
+    (401, {"error": {"code": "authentication_error", "message": "Invalid API key provided"}}),  # documentado
+    (403, {"error": {"code": "permission_denied", "message": "x"}}),
+])
+def test_invalid_key_is_an_auth_error_and_is_not_retried(status, body):
     calls = []
-    c = client_with(lambda r: calls.append(r) or httpx.Response(status, json={"error": "nope"}))
+    c = client_with(lambda r: calls.append(r) or httpx.Response(status, json=body))
     with pytest.raises(WindsorAuthError):
         c.query("facebook", ["date"], D1, D2)
     assert len(calls) == 1
@@ -192,3 +196,38 @@ def test_reconciliation_between_campaign_and_ad_level():
     missing = _payload("100.00", ["100.00"])
     missing.metrics.append(MetricRecord("c1", D2, Decimal("80"), None, None, None, None, None, None, None))
     assert any("sem detalhamento" in i for i in reconcile_levels(missing))
+
+
+def test_bad_request_surfaces_the_server_message_without_the_key():
+    body = {"error": {"code": "invalid_request", "message": f"Unknown field foo (key {SECRET})"}}
+    with pytest.raises(WindsorError) as err:
+        client_with(lambda r: httpx.Response(400, json=body)).query("facebook", ["foo"], D1, D2)
+    assert not isinstance(err.value, WindsorAuthError)
+    assert "Unknown field foo" in str(err.value) and SECRET not in str(err.value)
+
+
+def test_real_world_row_shapes_seen_in_production_accounts():
+    """Formatos observados em contas reais (valores e nomes trocados)."""
+    c = connector(FakeWindsor(), accounts=[{"platform": "meta", "external_id": META_A}])
+    p = Payload()
+    c._campaign_level(p, "meta", [
+        # campanha pausada, sem entrega no dia, com compra atribuída tardiamente; orçamento no conjunto (null)
+        meta_campaign_row(D1, campaign_id="late", campaign_status="PAUSED", campaign_daily_budget=None, spend=0,
+                          impressions=0, reach=0, clicks=0, link_clicks=None, actions_purchase=1,
+                          action_values_purchase=75.8,
+                          actions_onsite_conversion_messaging_conversation_started_7d=None),
+    ])
+    camp, m = p.campaigns[0], p.metrics[0]
+    assert (camp.status, camp.daily_budget) == ("paused", None)
+    assert (m.spend, m.impressions) == (Decimal("0.00"), 0)  # zero real da plataforma é preservado
+    assert (m.attributed_purchases, m.attributed_revenue) == (1, Decimal("75.80"))
+    assert m.leads is None and m.link_clicks is None  # sem entrega, ação ausente continua indisponível
+    # no nível de anúncio a API devolve 0 explícito (não null) para ações ausentes
+    c._breakdown(p, "meta", [{"date": D1.isoformat(), "account_id": META_A, "campaign_id": "late", "adset_id": "s",
+                              "adset_name": "CJ", "ad_id": "a", "ad_name": "AD", "spend": 0, "impressions": 0,
+                              "clicks": 0, "link_clicks": 0, "actions_lead": 0,
+                              "actions_onsite_conversion_messaging_conversation_started_7d": 0,
+                              "actions_purchase": 1, "action_values_purchase": 75.8}])
+    b = p.breakdown[0]
+    assert (b.leads, b.attributed_purchases, b.attributed_revenue) == (0, 1, Decimal("75.80"))
+    assert reconcile_levels(p) == []

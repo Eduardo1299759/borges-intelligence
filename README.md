@@ -3,8 +3,8 @@
 Plataforma de inteligência para gestão, análise e otimização de tráfego pago, operada por agentes
 especializados coordenados pelo **Borges Core**.
 
-**Estado atual: Fases 1 e 2 implementadas.** A Fase 2 (Windsor.ai) está testada contra respostas simuladas
-no formato real; a validação contra a API real do Windsor.ai ainda está pendente. Veja [docs/PHASES.md](docs/PHASES.md)
+**Estado atual: Fases 1 e 2 implementadas.** O conector Windsor.ai segue a documentação oficial e foi
+conferido com linhas reais; falta apenas uma sincronização completa com uma chave real. Veja [docs/PHASES.md](docs/PHASES.md)
 para o que existe, o que é simulado e o que vem a seguir, e [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 para as decisões técnicas.
 
@@ -49,6 +49,9 @@ docker compose up --build                  # http://localhost:3000
 4. Clique em **Escolher contas** e marque só as contas daquele cliente. Uma chave costuma enxergar contas
    de vários clientes; o Borges só lê as marcadas e descarta qualquer linha de outra conta.
 5. **Sincronizar agora.** O histórico mostra o resultado e os problemas de qualidade encontrados.
+
+Para restringir a instalação a algumas contas, defina `BORGES_WINDSOR_ALLOWED_ACCOUNTS` (IDs separados por
+vírgula): as demais contas da chave deixam de aparecer e não podem ser lidas.
 
 Sem CRM (Fase 5) não há vendas confirmadas: CAC real e ROAS confirmado aparecem como indisponíveis.
 
