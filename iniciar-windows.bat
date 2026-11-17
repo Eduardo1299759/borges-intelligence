@@ -82,6 +82,9 @@ if errorlevel 1 goto :fail
 if errorlevel 1 goto :fail
 ".venv\Scripts\python.exe" -m app.cli seed
 if errorlevel 1 goto :fail
+echo  Desligando versoes antigas do painel e da API que ainda estejam abertas...
+powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000,3001,8000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+timeout /t 2 /nobreak >nul
 start "Borges API (nao feche)" /D "%ROOT%backend" cmd /k ".venv\Scripts\python.exe -m uvicorn app.main:app --port 8000"
 
 REM --- frontend ------------------------------------------------------------
