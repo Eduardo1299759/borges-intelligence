@@ -3,7 +3,7 @@
 Plataforma de inteligência para gestão, análise e otimização de tráfego pago, operada por agentes
 especializados coordenados pelo **Borges Core**.
 
-**Estado atual: Fases 1 a 5 implementadas**, com IA opcional da Anthropic (desligada por padrão, sem custo). O conector Windsor.ai segue a documentação oficial e foi
+**Estado atual: Fases 1 a 6 implementadas**, com IA opcional da Anthropic (desligada por padrão, sem custo). O conector Windsor.ai segue a documentação oficial e foi
 conferido com linhas reais; falta apenas uma sincronização completa com uma chave real. Veja [docs/PHASES.md](docs/PHASES.md)
 para o que existe, o que é simulado e o que vem a seguir, e [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 para as decisões técnicas.
@@ -16,6 +16,8 @@ para as decisões técnicas.
 Com Git, Python 3.11+ e Node.js 20+ instalados, coloque `iniciar-windows.bat` numa pasta e dê dois cliques.
 Na primeira vez ele baixa o projeto, instala as dependências, gera o `backend/.env` com chaves novas, cria o
 banco e abre o painel em http://localhost:3000, mostrando o login. Nas vezes seguintes, só atualiza e liga.
+Abre três janelas: "Borges API", "Borges Painel" e "Borges Automações" (as rotinas agendadas só rodam com
+esta última aberta).
 Para limitar as contas do Windsor.ai, edite a linha `set "ACCOUNTS="` no início do arquivo.
 
 ## Executar localmente (sem Docker)
@@ -29,6 +31,12 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m app.cli init-db
 .venv/bin/python -m app.cli seed          # cria o administrador (a senha gerada aparece uma única vez)
 .venv/bin/uvicorn app.main:app --port 8000
+```
+
+Rotinas automáticas (auditoria diária, relatórios, revisões), em outro terminal:
+
+```bash
+cd backend && .venv/bin/python -m app.worker      # --once roda um ciclo e sai
 ```
 
 Em outro terminal:
@@ -46,7 +54,7 @@ O padrão local é SQLite. Para PostgreSQL, instale o driver com `pip install -e
 
 ```bash
 cp .env.example .env                       # preencha as três variáveis vazias
-docker compose up --build                  # http://localhost:3000
+docker compose up --build                  # http://localhost:3000 (inclui o worker de rotinas)
 ```
 
 ## Conectar um cliente real (Windsor.ai)
@@ -89,7 +97,8 @@ O teste E2E percorre no navegador os dez critérios de aceitação do MVP.
 
 Os E2E da Fase 2 e da IA usam serviços falsos locais (nunca as APIs reais). O da Fase 4 (`e2e/phase4.cjs`)
 roda com a IA desligada. Para o da IA, suba também `python -m tests.fake_anthropic_server 8098` e inicie a
-API com `BORGES_ANTHROPIC_BASE_URL=http://127.0.0.1:8098`. O da Fase 2:
+API com `BORGES_ANTHROPIC_BASE_URL=http://127.0.0.1:8098`. O da Fase 6 (`e2e/phase6.cjs`) usa o cliente de
+demonstração e gera um PDF do relatório. O da Fase 2:
 
 ```bash
 cd backend && .venv/bin/python -m tests.fake_windsor_server 8099
@@ -130,6 +139,9 @@ backend/app/
   agents/       Borges Core, Data Intelligence, Performance Auditor, Financial Intelligence
   decision/     motor de decisão (funções puras)
   execution/    aprovação, validação pré-execução, execução verificada
+  automation/   agenda das rotinas, anomalias e ciclo do worker (worker.py)
+  reports/      relatórios diário, semanal, mensal e competitivo
+  learning/     impacto antes x depois e memória de aprendizados
 frontend/       Next.js (App Router) + TypeScript + Tailwind
 docs/           arquitetura e fases
 ```

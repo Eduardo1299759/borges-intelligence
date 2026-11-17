@@ -7,7 +7,7 @@ módulos são as que o produto vai precisar ao crescer (conectores, agentes, dec
 auditoria), mas tudo roda em um processo — sem microsserviços enquanto não houver motivo.
 
 ```
-Navegador ──> Next.js ──(/api, proxy same-origin)──> FastAPI ──> PostgreSQL
+Navegador ──> Next.js ──(/api, proxy same-origin)──> FastAPI ──> PostgreSQL <── worker (rotinas)
                                                        │
               api/ ─> services/ ─> agents/ ─> decision/ ─> execution/
                           │                                    │
@@ -21,7 +21,7 @@ Navegador ──> Next.js ──(/api, proxy same-origin)──> FastAPI ──>
 | FastAPI + SQLAlchemy 2 + Alembic | Contratos tipados (Pydantic), ecossistema de dados/IA em Python, migrações versionadas. |
 | Proxy `/api` no Next.js | Sessão em cookie `httpOnly` + `SameSite=Lax` same-origin: sem token em `localStorage`, sem CORS. |
 | SQLite como padrão local, PostgreSQL em Docker/produção | Rodar sem dependências; a suíte passa nos dois bancos. |
-| **Sem Redis/filas na Fase 1** | Ainda não há trabalho assíncrono. Entram com o agendador (Fase 6). |
+| **Fila no banco, sem Redis (Fase 6)** | As rotinas são poucas por cliente e por dia. A tabela `routines` guarda o próximo horário; o worker reserva as vencidas com `FOR UPDATE SKIP LOCKED` (PostgreSQL). Um serviço a menos para instalar no Windows e no Docker. |
 | **Regras decidem; IA só redige** | Diagnóstico e recomendações vêm de regras auditáveis. A IA da Anthropic (opcional) interpreta a pergunta e redige a resposta a partir desses fatos, nunca calcula nem cria recomendações. |
 | Motor de decisão em funções puras | Cada regra é testada com números controlados, sem banco. |
 | Leitura e escrita como contratos separados | Ter leitura (ex.: Windsor.ai) nunca implica poder alterar campanhas. |
@@ -39,6 +39,11 @@ Navegador ──> Next.js ──(/api, proxy same-origin)──> FastAPI ──>
   a fonte entrega. A verdade dos indicadores continua em `metric_daily`; o detalhe é reconciliado contra ela.
 - `integrations` — credencial cifrada e contas selecionadas, por cliente. `sync_runs` — cada sincronização.
 - `audit_log` — trilha somente-inserção encadeada por hash.
+- `routines`, `routine_runs` — agenda por cliente (horário de parede no fuso do cliente, próximo horário em UTC)
+  e cada execução com resumo ou erro.
+- `alerts` — anomalias e avisos das rotinas (aberto, ciente, resolvido), sem repetição enquanto aberto.
+- `reports` — relatórios gerados, com o conteúdo congelado no momento da geração.
+- `learnings` — memória de aprendizados: origem, evidência, status (hipótese, validado, refutado) e confiabilidade.
 
 Toda tabela de negócio tem `client_id`. O acesso passa por `services/access.py`; um cliente de
 terceiros responde 404, igual a um inexistente.
@@ -149,6 +154,15 @@ nunca fingida.
 Auditoria: cada registro guarda o hash do anterior; `GET /api/audit/verify` recalcula a cadeia. No
 PostgreSQL um gatilho bloqueia `UPDATE`/`DELETE`. Isso torna adulteração evidente; não protege contra
 um superusuário do banco que remova o gatilho e reescreva a cadeia inteira.
+
+## Automações (Fase 6)
+
+`automation/schedule.py` calcula o próximo horário (funções puras, testadas com horário de verão).
+`automation/routines.py` define as rotinas e o ciclo do worker (`app/worker.py`): marcar execuções presas como
+falhas, criar as rotinas padrão de clientes novos, reservar as vencidas e rodar cada uma em transação própria.
+As rotinas chamam os mesmos serviços da API (sincronização, Borges Core, biblioteca de criativos, Radar,
+experimentos) e não têm caminho de escrita: nenhuma importa o executor. `reports/builder.py` monta os relatórios;
+`learning/impact.py` mede antes x depois e `learning/service.py` aplica a regra de que só experimento valida.
 
 ## Limitações de segurança conhecidas
 

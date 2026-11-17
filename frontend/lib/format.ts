@@ -24,9 +24,9 @@ export function day(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export function dateTime(iso: string | null): string {
+export function dateTime(iso: string | null, timeZone?: string): string {
   if (!iso) return DASH;
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone }).format(new Date(iso));
 }
 
 export const STATUS_LABEL: Record<string, string> = {

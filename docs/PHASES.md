@@ -137,6 +137,42 @@ página, escrita: bloqueio, sucesso, cache atrasado, confirmação, escrita não
 - Conexão direta com CRMs (HubSpot, Pipedrive, RD Station etc.), API de Conversões e conversões offline.
 - Reversão com um clique (o valor anterior fica registrado para reversão manual).
 
-## Fase 6 — Automações e aprendizado
-Agendador por cliente (aqui entram Redis e fila), relatórios e PDF, alertas, medição do efeito das
-decisões, memória de aprendizados com origem, data e confiabilidade.
+## Fase 6 — Automações e aprendizado ✅ (rotinas reais rodam no seu PC só com o worker ligado)
+
+**Entregue**
+- Rotinas por cliente, no fuso do cliente (horário de verão respeitado): auditoria diária (08:00), revisão
+  competitiva (diária, 09:00), relatório semanal (segunda, 12:00), relatório mensal (dia 1, 10:00) e revisão de
+  criativos (a cada 3 dias). Criadas automaticamente; gestor pode mudar horário, ligar e desligar; "Rodar agora"
+  para editores. Nenhuma rotina altera campanhas: recomendações continuam esperando aprovação.
+- Worker (`python -m app.worker`): fila no próprio banco, sem Redis. Reserva cada rotina vencida avançando o
+  próximo horário na mesma transação (no PostgreSQL com `FOR UPDATE SKIP LOCKED`, então dois workers não
+  rodam a mesma rotina); execuções presas há mais de 2 horas viram "falhou". Uma falha fica registrada na
+  execução e na auditoria e não impede as outras rotinas.
+- Auditoria diária: sincroniza (clientes reais), roda a análise completa (sem duplicar pendências), detecta
+  anomalias (pico de gasto > média + 3 desvios, entrega parada, custo por lead 50% acima nos últimos 3 dias,
+  ritmo projetado > 120% do orçamento), avisa quando um experimento atinge o ponto de decisão, mede o efeito
+  das execuções e gera o relatório diário. Alertas não se repetem enquanto o anterior estiver aberto.
+- Relatórios diário, semanal, mensal (mês completo) e competitivo: resumo executivo, indicadores com
+  comparação, campanhas, hipóteses, o que foi feito, testes, próximos passos, alertas, aprendizados e
+  qualidade dos dados. Exportar PDF pelo navegador (o menu some na impressão). Narração por IA não foi
+  ligada: a IA segue desligada por decisão sua.
+- Mensuração: 7 dias antes x 7 dias depois de cada execução concluída, com CAC real quando houver vendas.
+- Memória de aprendizados com origem, data, status e confiabilidade. Experimento concluído vira aprendizado
+  "validado" só com resultado estatisticamente significativo; antes x depois e anotações manuais entram como
+  hipótese de confiabilidade baixa. Validar exige um experimento concluído e significativo; refutar exige
+  motivo. Busca por palavra-chave.
+
+**Como é verificado:** `tests/test_schedule.py` (fuso, semanal, mensal com dia 31, a cada N dias, horário de
+verão), `tests/test_anomalies.py`, `tests/test_phase6.py` (rotinas, worker sem execução dupla, cliente inativo,
+falha registrada, execução presa, relatórios, aprendizados e regras de validação, impacto, revisão de
+criativos, isolamento e papéis) em SQLite e PostgreSQL; `e2e/phase6.cjs` (inclui o PDF) e `e2e/layout.cjs`.
+
+**Pendente / limitações**
+- No Windows as rotinas só rodam com a janela "Borges Automações" aberta e o PC ligado. Para rodar 24 h,
+  é preciso hospedar o sistema (não publicado, por decisão sua).
+- Com SQLite (uso local) API e worker dividem o mesmo arquivo; para vários clientes simultâneos, use
+  PostgreSQL (Docker).
+- Relatórios não são enviados por e-mail/WhatsApp; ficam no painel e saem em PDF pelo navegador.
+- Antes x depois não prova causa; só experimentos validam. Não há modelo causal (ex.: holdout geográfico).
+- A revisão de criativos só cria alerta: o briefing exige objetivo, público e oferta, que o sistema não inventa.
+- Busca por palavra-chave, não semântica.

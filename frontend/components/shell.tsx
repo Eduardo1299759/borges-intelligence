@@ -18,15 +18,14 @@ const NAV = [
   { href: "/radar", label: "Radar competitivo" },
   { href: "/comercial", label: "Inteligência comercial" },
   { href: "/tracking", label: "Tracking & CRO" },
+  { href: "/relatorios", label: "Relatórios" },
+  { href: "/automacoes", label: "Automações" },
+  { href: "/aprendizados", label: "Aprendizados" },
   { href: "/auditoria", label: "Auditoria" },
   { href: "/configuracoes", label: "Configurações" },
 ];
 
 // Áreas previstas que ainda não existem. Ficam visíveis como roteiro, nunca como tela vazia.
-const ROADMAP = [
-  { label: "Relatórios", phase: 6 },
-];
-
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, clients, client, selectClient } = useApp();
@@ -38,7 +37,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
-      <aside className="flex shrink-0 flex-col bg-navy-950 text-slate-200 lg:w-64">
+      <aside className="flex shrink-0 print:hidden flex-col bg-navy-950 text-slate-200 lg:w-64">
         <div className="flex items-center gap-3 px-5 py-5">
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-azure-500 to-aqua text-sm font-bold text-white">B</div>
           <div>
@@ -61,15 +60,6 @@ export function Shell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="hidden px-3 pb-4 lg:block">
-          <p className="px-3 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-slate-500">Próximas fases</p>
-          {ROADMAP.map((item) => (
-            <div key={item.label} className="flex items-center justify-between px-3 py-1.5 text-sm text-slate-500">
-              <span>{item.label}</span>
-              <span className="rounded bg-navy-800 px-1.5 py-0.5 text-[10px] text-slate-400">Fase {item.phase}</span>
-            </div>
-          ))}
-        </div>
         <div className="mt-auto hidden border-t border-navy-800 px-5 py-4 lg:block">
           <p className="truncate text-sm text-white">{user.name}</p>
           <p className="truncate text-xs text-slate-400">{user.email} · {ROLE_LABEL[user.role]}</p>
@@ -78,7 +68,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 sm:px-8">
+        <header className="flex flex-wrap items-center justify-between gap-3 print:hidden border-b border-line bg-white px-4 py-3 sm:px-8">
           <label className="flex items-center gap-2 text-sm">
             <span className="text-muted">Cliente</span>
             <select

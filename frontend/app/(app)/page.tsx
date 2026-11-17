@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useApp } from "@/components/app-context";
+import { AlertItem, AlertList } from "@/components/alert-list";
 import { NoClient } from "@/components/no-client";
 import { TrendChart } from "@/components/trend-chart";
 import { Badge, Card, CardHeader, Loading, Notice, PageTitle } from "@/components/ui";
-import { useApi } from "@/lib/api";
+import { api, useApi } from "@/lib/api";
 import { dateTime, day, dec, int, money, pct } from "@/lib/format";
 import type { Agent, Dashboard } from "@/lib/types";
 
@@ -34,10 +35,11 @@ function Kpi({ label, value, change, good, note }: { label: string; value: strin
 const AGENT_STATUS = { active: ["Ativo", "green"], partial: ["Parcial", "blue"], planned: ["Planejado", "neutral"] } as const;
 
 export default function OverviewPage() {
-  const { client } = useApp();
+  const { client, canAnalyze } = useApp();
   const [days, setDays] = useState(30);
   const { data, error, loading } = useApi<Dashboard>(client ? `/clients/${client.id}/dashboard?days=${days}` : null);
   const agents = useApi<Agent[]>("/agents");
+  const alerts = useApi<AlertItem[]>(client ? `/clients/${client.id}/alerts` : null);
 
   if (!client) return <NoClient />;
   const k = data?.kpis;
@@ -128,6 +130,14 @@ export default function OverviewPage() {
             </Notice>
           )}
         </div>
+      )}
+
+      {(alerts.data?.length ?? 0) > 0 && (
+        <Card className="mt-6">
+          <CardHeader title="Alertas automáticos" hint="Detectados pelas rotinas diárias" action={<Link href="/automacoes" className="text-xs font-medium text-azure-600 hover:underline">Automações</Link>} />
+          <AlertList alerts={alerts.data!.slice(0, 5)} canAct={canAnalyze}
+            onChange={(id, status) => api(`/clients/${client.id}/alerts/${id}/status`, { method: "POST", body: { status } }).then(alerts.reload)} />
+        </Card>
       )}
 
       <Card className="mt-6">

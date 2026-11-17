@@ -42,6 +42,7 @@ if errorlevel 1 goto :nopython
 REM --- desligar versoes antigas: no Windows elas travam arquivos de .venv ----
 echo  Desligando versoes antigas do painel e da API que ainda estejam abertas...
 powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000,3001,8000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*app.worker*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
 timeout /t 3 /nobreak >nul
 
 REM --- localizar ou baixar o projeto ---------------------------------------
@@ -97,11 +98,12 @@ echo.
 echo  Aguardando a API responder...
 ".venv\Scripts\python.exe" -m app.cli wait-api
 if errorlevel 1 echo  [AVISO] A API nao respondeu. Veja se ha erro na janela "Borges API" e mande um print para o Claude.
+start "Borges Automacoes (nao feche)" /D "%ROOT%backend" cmd /k ".venv\Scripts\python.exe -m app.worker"
 echo.
 ".venv\Scripts\python.exe" -m app.cli login-info
 echo.
 echo  Pronto. O painel vai abrir no navegador: http://localhost:3000
-echo  Para desligar, feche as duas janelas "Borges API" e "Borges Painel".
+echo  Para desligar, feche as janelas "Borges API", "Borges Painel" e "Borges Automacoes".
 timeout /t 8 /nobreak >nul
 start "" http://localhost:3000
 echo.

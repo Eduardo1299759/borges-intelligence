@@ -34,9 +34,11 @@ AGENTS = [
     {"code": "10", "name": "Experimentation Engine", "role": "Experimentos", "status": "active", "phase": 4,
      "capability": "Testes entre anúncios com tamanho de amostra, teste estatístico, critérios e "
                    "registro do aprendizado."},
-    {"code": "11", "name": "Reporting Intelligence", "role": "Relatórios", "status": "planned", "phase": 6,
-     "capability": ""},
+    {"code": "11", "name": "Reporting Intelligence", "role": "Relatórios", "status": "active", "phase": 6,
+     "capability": "Relatórios diário, semanal, mensal e competitivo com período, comparação, hipóteses, "
+                   "ações e próximos passos; exportação em PDF pelo navegador."},
     {"code": "12", "name": "Operations & Safety", "role": "Execução controlada", "status": "partial", "phase": 5,
      "capability": "Aprovação, validação pré-execução, idempotência, verificação por releitura e auditoria. "
-                   "Simulada em demonstração; real pelo Windsor.ai quando ligada pelo administrador."},
+                   "Simulada em demonstração; real pelo Windsor.ai quando ligada pelo administrador. Rotinas agendadas "
+                   "por cliente, alertas de anomalia e memória de aprendizados."},
 ]

@@ -155,7 +155,9 @@ def main() -> None:
     ie = sub.add_parser("init-env")
     ie.add_argument("--accounts", default=None, help="IDs de contas Windsor.ai permitidas, separados por vírgula")
     sub.add_parser("login-info")
-    sub.add_parser("wait-api")
+    wa = sub.add_parser("wait-api")
+    wa.add_argument("url", nargs="?", default="http://127.0.0.1:8000/api/health")
+    wa.add_argument("--seconds", type=int, default=60)
     sub.add_parser("init-db")
     sub.add_parser("seed")
     cu = sub.add_parser("create-user")
@@ -168,7 +170,7 @@ def main() -> None:
     elif args.cmd == "login-info":
         login_info()
     elif args.cmd == "wait-api":
-        sys.exit(0 if wait_api() else 1)
+        sys.exit(0 if wait_api(args.url, args.seconds) else 1)
     elif args.cmd == "init-db":
         init_db()
     elif args.cmd == "seed":

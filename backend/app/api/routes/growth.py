@@ -15,6 +15,7 @@ from app.creative import briefs as brief_service
 from app.creative.library import library
 from app.experiments import service as experiments
 from app.experiments.service import METRIC_LABEL
+from app.learning import service as learnings
 from app.models import Ad, Campaign, Competitor, CompetitorAd, CreativeBrief, Experiment, Recommendation, User
 from app.services import audit
 from app.services.access import get_client_or_404, require_role
@@ -198,9 +199,11 @@ def conclude_experiment(client_id: int, exp_id: int, body: ConcludeIn, user: Use
     if e.status != "running":
         raise HTTPException(409, "Só experimentos em andamento podem ser concluídos.")
     experiments.conclude(db, client, e, body.outcome, body.learning)
+    learning = learnings.from_experiment(db, client, e, user.email)
     audit.record(db, action="experiment.concluded", actor=user, client_id=client.id, entity_type="experiment",
                  entity_id=e.id, details={"outcome": body.outcome, "learning": body.learning,
-                                          "verdict": (e.final_result or {}).get("verdict", {}).get("status")})
+                                          "verdict": (e.final_result or {}).get("verdict", {}).get("status"),
+                                          "learning_id": learning.id, "learning_status": learning.status})
     db.commit()
     return _exp_out(db, client, e)
 

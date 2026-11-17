@@ -498,3 +498,85 @@ class PageCheck(Base):
     url: Mapped[str] = mapped_column(String(500))
     result: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Routine(Base):
+    """Rotina automática de um cliente. Horários no fuso do cliente; next_run_at guardado em UTC."""
+
+    __tablename__ = "routines"
+    __table_args__ = (UniqueConstraint("client_id", "kind"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    # daily_audit | competitive_review | weekly_report | monthly_report | creative_review
+    kind: Mapped[str] = mapped_column(String(30))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    schedule_type: Mapped[str] = mapped_column(String(20))  # daily | weekly | monthly | every_n_days
+    time: Mapped[str] = mapped_column(String(5))  # HH:MM
+    weekday: Mapped[int | None] = mapped_column(Integer)  # 0 = segunda
+    day_of_month: Mapped[int | None] = mapped_column(Integer)
+    interval_days: Mapped[int | None] = mapped_column(Integer)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RoutineRun(Base):
+    __tablename__ = "routine_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    routine_id: Mapped[int] = mapped_column(ForeignKey("routines.id", ondelete="CASCADE"), index=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="running")  # running | completed | failed
+    triggered_by: Mapped[str] = mapped_column(String(160))
+    summary: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(40))
+    severity: Mapped[str] = mapped_column(String(10))  # alta | media | baixa
+    title: Mapped[str] = mapped_column(String(240))
+    detail: Mapped[str] = mapped_column(Text)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open | acknowledged | resolved
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Report(Base):
+    __tablename__ = "reports"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # daily | weekly | monthly | competitive
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date)
+    content: Mapped[dict[str, Any]] = mapped_column(JSON)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[str] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Learning(Base):
+    """Memória de aprendizados. Só vira 'validated' com evidência de experimento; o resto é hipótese."""
+
+    __tablename__ = "learnings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    statement: Mapped[str] = mapped_column(Text)
+    context: Mapped[str | None] = mapped_column(Text)  # segmento, campanha, público, oferta...
+    # experiment | execution_impact | manual | platform_doc
+    source_type: Mapped[str] = mapped_column(String(30))
+    source_ref: Mapped[str | None] = mapped_column(String(80))
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="hypothesis")  # hypothesis | validated | refuted
+    reliability: Mapped[str] = mapped_column(String(10), default="baixa")  # baixa | média | alta
+    created_by: Mapped[str] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

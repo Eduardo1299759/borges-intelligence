@@ -12,7 +12,7 @@ const BASE = process.env.E2E_BASE_URL || "http://localhost:3000";
     await p.getByLabel("Senha").fill(process.env.E2E_PASSWORD);
     await p.getByRole("button", { name: "Entrar" }).click();
     await p.waitForURL(BASE + "/");
-    for (const route of ["/", "/clientes", "/inteligencia", "/campanhas", "/aprovacoes", "/criativos", "/experimentos", "/radar", "/comercial", "/tracking", "/auditoria", "/configuracoes"]) {
+    for (const route of ["/", "/clientes", "/inteligencia", "/campanhas", "/aprovacoes", "/criativos", "/experimentos", "/radar", "/comercial", "/tracking", "/relatorios", "/automacoes", "/aprendizados", "/auditoria", "/configuracoes"]) {
       await p.goto(BASE + route);
       await p.waitForLoadState("networkidle");
       await p.waitForTimeout(400);

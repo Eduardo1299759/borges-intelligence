@@ -12,7 +12,11 @@ const ACTION: Record<string, string> = {
   "client.updated": "Cliente atualizado", "analysis.completed": "Análise concluída", "user.created": "Usuário criado",
   "recommendation.approved": "Recomendação aprovada", "recommendation.rejected": "Recomendação rejeitada",
   "recommendation.adjustment_requested": "Ajuste solicitado", "execution.completed": "Execução concluída e verificada",
-  "execution.failed": "Execução bloqueada / falhou",
+  "execution.failed": "Execução bloqueada / falhou", "routine.completed": "Rotina concluída",
+  "routine.failed": "Rotina falhou", "routine.updated": "Rotina alterada", "report.generated": "Relatório gerado",
+  "alert.acknowledged": "Alerta reconhecido", "alert.resolved": "Alerta resolvido",
+  "learning.created": "Aprendizado registrado", "learning.validated": "Aprendizado validado",
+  "learning.refuted": "Aprendizado refutado",
 };
 
 export default function AuditPage() {
