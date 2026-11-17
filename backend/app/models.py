@@ -258,6 +258,8 @@ class Recommendation(Base):
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
     analysis_run_id: Mapped[int] = mapped_column(ForeignKey("analysis_runs.id", ondelete="CASCADE"))
     campaign_id: Mapped[int | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"))
+    ad_set_id: Mapped[int | None] = mapped_column(ForeignKey("ad_sets.id", ondelete="SET NULL"))
+    ad_id: Mapped[int | None] = mapped_column(ForeignKey("ads.id", ondelete="SET NULL"))
     agent: Mapped[str] = mapped_column(String(60))
     rule: Mapped[str] = mapped_column(String(60))
     title: Mapped[str] = mapped_column(String(240))
@@ -282,6 +284,8 @@ class Recommendation(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     campaign: Mapped[Campaign | None] = relationship()
+    ad_set: Mapped[AdSet | None] = relationship()
+    ad: Mapped[Ad | None] = relationship()
     decisions: Mapped[list[ApprovalDecision]] = relationship(order_by="ApprovalDecision.id")
     executions: Mapped[list[Execution]] = relationship(order_by="Execution.id")
 

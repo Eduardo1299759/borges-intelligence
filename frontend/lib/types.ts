@@ -14,7 +14,8 @@ export interface Decision { decision: string; comment: string | null; user: stri
 export interface Check { check: string; passed: boolean; detail: string }
 export interface Execution {
   id: number; mode: string; status: string; checks: Check[]; verified: boolean; error: string | null;
-  before_state: { daily_budget: number } | null; after_state: { daily_budget: number } | null;
+  before_state: { daily_budget?: number; ad_status?: string } | null;
+  after_state: { daily_budget?: number; ad_status?: string } | null;
   finished_at: string | null;
 }
 
@@ -22,7 +23,9 @@ export interface Recommendation {
   id: number; campaign_id: number | null; campaign_name: string | null; platform: string | null; agent: string;
   rule: string; title: string; problem: string; evidence: Evidence[]; probable_cause: string;
   alternatives: string[]; hypothesis: string; action_type: string;
-  action_payload: { from?: number; to?: number; change_pct?: number };
+  action_payload: { from?: number; to?: number; change_pct?: number; ad_id?: number };
+  ad_set_id: number | null; ad_set_name: string | null; ad_id: number | null; ad_name: string | null;
+  ad_status: string | null;
   recommended_action: string; expected_impact: string; priority: "alta" | "média" | "baixa";
   priority_score: number; confidence: string; risks: string; requires_approval: boolean;
   validation_metric: string; status: string; is_demo: boolean; created_at: string; updated_at: string;
@@ -61,7 +64,8 @@ export interface CampaignRow {
   id: number; name: string; platform: string; objective: string | null; status: string;
   daily_budget: number | null; is_demo: boolean; kpis: Kpis | null;
   changes: { execution_id: number; status: string; mode: string; verified: boolean; title: string;
-             before: { daily_budget: number } | null; after: { daily_budget: number } | null;
+             before: { daily_budget?: number; ad_status?: string } | null;
+             after: { daily_budget?: number; ad_status?: string } | null;
              finished_at: string | null }[];
 }
 
@@ -88,5 +92,5 @@ export interface Pacing {
   month: string; as_of: string; days_elapsed: number; days_in_month: number; mtd_spend: number | null;
   monthly_budget: number | null; projected_spend: number | null; projected_vs_budget: number | null;
 }
-export interface BreakdownNode { id: number; name: string; kpis: Kpis; ads?: BreakdownNode[] }
+export interface BreakdownNode { id: number; name: string; status?: string | null; kpis: Kpis; ads?: BreakdownNode[] }
 export interface Breakdown { campaign_id: number; platform: string; ad_sets: (BreakdownNode & { ads: BreakdownNode[] })[] }

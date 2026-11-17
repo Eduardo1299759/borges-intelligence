@@ -1,7 +1,7 @@
 """Agente 12 — Operations & Safety: decisão humana, validação pré-execução, execução e verificação.
 
-Fase 1: a única ação executável é `adjust_budget`, e somente em modo SIMULADO (clientes de
-demonstração; altera apenas o registro da campanha demo no banco do Borges). Para clientes reais não
+Ações executáveis: `adjust_budget` e `pause_ad`, somente em modo SIMULADO (clientes de
+demonstração; alteram apenas os registros demo no banco do Borges). Para clientes reais não
 existe conector de escrita, então a execução é bloqueada e registrada como falha — nunca fingida.
 """
 from __future__ import annotations
@@ -21,6 +21,7 @@ from app.models import (
     REC_COMPLETED,
     REC_FAILED,
     REC_REJECTED,
+    Ad,
     ApprovalDecision,
     Campaign,
     Client,
@@ -48,11 +49,11 @@ def decide(db: Session, rec: Recommendation, client: Client, user: User, decisio
         rec.status = REC_REJECTED
     elif decision == "request_adjustment":
         rec.status = REC_ADJUST
-    elif rec.action_type != "adjust_budget" or client.operation_level < 2:
+    elif rec.action_type not in EXECUTORS or client.operation_level < 2:
         # Tarefa manual (análise, auditoria, criativo) ou cliente em nível consultivo: nada é executado.
         rec.status = REC_APPROVED
     else:
-        execute_budget_change(db, rec, client, user)
+        EXECUTORS[rec.action_type](db, rec, client, user)
     db.flush()
     return rec
 
@@ -114,3 +115,56 @@ def execute_budget_change(db: Session, rec: Recommendation, client: Client, user
                           "before": execution.before_state, "after": execution.after_state,
                           "verified": execution.verified, "error": execution.error})
     return execution
+
+
+def execute_pause_ad(db: Session, rec: Recommendation, client: Client, user: User) -> Execution:
+    key = f"recommendation-{rec.id}"
+    if db.scalar(select(Execution.id).where(Execution.idempotency_key == key)) is not None:
+        raise HTTPException(409, "Esta recomendação já foi executada.")
+    ad = db.get(Ad, rec.action_payload.get("ad_id"))
+    checks: list[dict[str, Any]] = []
+
+    def check(name: str, passed: bool, detail: str) -> bool:
+        checks.append({"check": name, "passed": bool(passed), "detail": detail})
+        return bool(passed)
+
+    simulated = client.data_mode == "demo"
+    ok = check("Conector de escrita", simulated,
+               "Execução simulada em dados demonstrativos." if simulated
+               else "Não há conector de escrita autorizado para clientes reais (Fase 5).")
+    ok &= check("Nível de operação", client.operation_level >= 2, f"Nível {client.operation_level} do cliente.")
+    own = ad is not None and ad.client_id == client.id
+    ok &= check("Conta correta", own, "O anúncio pertence a este cliente." if own
+                else "Anúncio inexistente ou de outro cliente.")
+    if own:
+        ok &= check("Estado atual confere", ad.status != "paused", f"Status atual do anúncio: {ad.status}.")
+        ok &= check("Reversível", True, "O anúncio pode ser reativado; o status anterior fica registrado.")
+
+    execution = Execution(recommendation_id=rec.id, client_id=client.id, idempotency_key=key,
+                          mode="simulated" if simulated else "live", status="executing", checks=checks)
+    db.add(execution)
+    if not ok:
+        execution.status, rec.status = "failed", REC_FAILED
+        execution.error = "; ".join(c["detail"] for c in checks if not c["passed"])
+    else:
+        execution.before_state = {"ad_status": ad.status}
+        ad.status = "paused"
+        db.flush()
+        db.refresh(ad)  # leitura posterior
+        execution.after_state = {"ad_status": ad.status}
+        execution.verified = ad.status == "paused"
+        execution.status = "completed" if execution.verified else "failed"
+        rec.status = REC_COMPLETED if execution.verified else REC_FAILED
+        if not execution.verified:
+            execution.error = "A releitura não confirmou o novo status."
+    execution.finished_at = datetime.now(UTC)
+    db.flush()
+    audit.record(db, action=f"execution.{execution.status}", actor=user, client_id=client.id,
+                 entity_type="execution", entity_id=execution.id,
+                 details={"recommendation_id": rec.id, "mode": execution.mode, "action": "pause_ad",
+                          "ad_id": rec.action_payload.get("ad_id"), "before": execution.before_state,
+                          "after": execution.after_state, "verified": execution.verified, "error": execution.error})
+    return execution
+
+
+EXECUTORS = {"adjust_budget": execute_budget_change, "pause_ad": execute_pause_ad}

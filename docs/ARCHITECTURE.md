@@ -116,9 +116,16 @@ Uma recomendação por campanha, pela primeira regra aplicável (`decision/engin
 Os limiares são pontos de partida conservadores, não verdades universais; devem ser calibrados com
 dados reais. Prioridade = participação no investimento × severidade da regra.
 
+## Especialistas (abaixo da campanha)
+
+`decision/specialists.py` recebe o retrato da campanha e os totais de cada anúncio (Meta) ou grupo
+(Google) e devolve recomendações, também como funções puras. Nenhuma regra desse nível fala em CAC,
+porque vendas confirmadas só existem por campanha. Limiares e a justificativa estatística de cada regra
+estão no topo do arquivo.
+
 ## Execução e segurança
 
-Aprovar uma recomendação de orçamento dispara, nesta ordem: conector de escrita disponível, nível de
+Ações executáveis: ajuste de orçamento e pausa de anúncio. Aprovar uma recomendação de orçamento dispara, nesta ordem: conector de escrita disponível, nível de
 operação, conta correta, estado atual igual ao da recomendação, limite financeiro do cliente, valor
 válido. Qualquer falha registra a execução como **falhou** e nada é alterado. Em caso de sucesso, o
 valor é relido antes de marcar **concluída**. Uma chave de idempotência única impede dupla execução.

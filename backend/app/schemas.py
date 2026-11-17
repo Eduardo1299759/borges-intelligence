@@ -128,6 +128,11 @@ class RecommendationOut(BaseModel):
     campaign_id: int | None
     campaign_name: str | None
     platform: str | None
+    ad_set_id: int | None
+    ad_set_name: str | None
+    ad_id: int | None
+    ad_name: str | None
+    ad_status: str | None
     agent: str
     rule: str
     title: str

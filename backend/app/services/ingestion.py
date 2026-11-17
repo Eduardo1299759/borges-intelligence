@@ -65,7 +65,9 @@ def ingest(db: Session, client: Client, connector: ReadConnector, payload: Paylo
                      external_id=rec.external_id, name=rec.name)
             db.add(row)
             ads[(parent.id, rec.external_id)] = row
-        row.name, row.status = rec.name, rec.status
+        row.name = rec.name
+        if not demo or row.status is None:  # execuções simuladas (pausar anúncio) não são desfeitas pelo gerador
+            row.status = rec.status
         ad_by_ext[rec.external_id] = row
     db.flush()
 

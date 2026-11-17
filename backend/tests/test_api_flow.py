@@ -118,7 +118,13 @@ def test_analysis_produces_one_structured_recommendation_per_campaign(admin, dem
     a = analyze(admin, demo_client["id"])
     recs = by_rule(a)
     assert set(recs) == {"lead_quality", "scale_winner", "creative_fatigue", "tracking_divergence",
-                         "insufficient_sample", "keep"}
+                         "insufficient_sample", "keep", "ad_no_results"}
+    # Meta Ads Specialist: o anúncio "Imagem combo" gasta sem gerar lead nas 3 campanhas da Meta.
+    # Nenhuma recomendação de anúncio para campanhas com amostra insuficiente ou rastreamento duvidoso.
+    ad_recs = [r for r in a["recommendations"] if r["rule"] == "ad_no_results"]
+    assert len(ad_recs) == 3 and {r["ad_name"] for r in ad_recs} == {"Imagem combo"}
+    assert all(r["platform"] == "meta" and r["action_type"] == "pause_ad" for r in ad_recs)
+    assert len({r["title"] for r in ad_recs}) == 3  # títulos distinguem a campanha
     assert a["is_demo"] and "DADOS DEMONSTRATIVOS" in a["summary"]["answer"]
     assert recs["lead_quality"]["id"] in a["summary"]["matched_ids"]
     for r in a["recommendations"]:
@@ -130,13 +136,13 @@ def test_analysis_produces_one_structured_recommendation_per_campaign(admin, dem
     assert recs["scale_winner"]["status"] == "awaiting_approval"
     assert a["summary"]["finance"]["breakeven_roas"] == 1 / 0.35
     pending = admin.get(f"/api/clients/{demo_client['id']}/recommendations").json()
-    assert len(pending) == 4 and pending[0]["priority_score"] >= pending[-1]["priority_score"]
+    assert len(pending) == 7 and pending[0]["priority_score"] >= pending[-1]["priority_score"]
 
 
 def test_repeated_analysis_does_not_duplicate_pending_recommendations(admin, demo_client):
     first = analyze(admin, demo_client["id"])
     second = analyze(admin, demo_client["id"])
-    assert len(admin.get(f"/api/clients/{demo_client['id']}/recommendations").json()) == 4
+    assert len(admin.get(f"/api/clients/{demo_client['id']}/recommendations").json()) == 7
     assert by_rule(first)["scale_winner"]["id"] == by_rule(second)["scale_winner"]["id"]
 
 
@@ -279,3 +285,37 @@ def test_clients_work_without_system_timezone_database(admin, monkeypatch):
     finally:
         zoneinfo.reset_tzpath()
         zoneinfo.ZoneInfo.clear_cache()
+
+
+def test_pause_ad_is_simulated_verified_and_not_undone_by_demo_resync(admin, demo_client, db):
+    from app.models import Ad
+    cid = demo_client["id"]
+    rec = next(r for r in analyze(admin, cid)["recommendations"] if r["rule"] == "ad_no_results")
+    url = f"/api/clients/{cid}/recommendations/{rec['id']}/decision"
+    out = admin.post(url, json={"decision": "approve"}).json()
+    ex = out["executions"][0]
+    assert out["status"] == "completed" and ex["mode"] == "simulated" and ex["verified"]
+    assert ex["before_state"] == {"ad_status": "active"} and ex["after_state"] == {"ad_status": "paused"}
+    assert db.get(Ad, rec["ad_id"]).status == "paused"
+    assert admin.post(url, json={"decision": "approve"}).status_code == 409
+    # regerar os dados demo não "despausa" o anúncio
+    assert admin.post(f"/api/clients/{cid}/sync", json={"days": 30}).json()["status"] == "completed"
+    db.expire_all()
+    assert db.get(Ad, rec["ad_id"]).status == "paused"
+    camp = admin.get(f"/api/clients/{cid}/campaigns/{rec['campaign_id']}/breakdown").json()
+    paused = [a for s in camp["ad_sets"] for a in s["ads"] if a["id"] == rec["ad_id"]]
+    assert paused[0]["status"] == "paused"
+    # nova análise: o anúncio já pausado não gera nova recomendação de pausa
+    again = analyze(admin, cid)["recommendations"]
+    assert not any(r["rule"] == "ad_no_results" and r["ad_id"] == rec["ad_id"] and r["action_type"] == "pause_ad"
+                   for r in again)
+
+
+def test_pause_ad_on_live_client_is_blocked_not_faked(admin, demo_client, db):
+    from app.models import Ad, Client
+    cid = demo_client["id"]
+    rec = next(r for r in analyze(admin, cid)["recommendations"] if r["rule"] == "ad_no_results")
+    db.get(Client, cid).data_mode = "live"
+    db.commit()
+    out = admin.post(f"/api/clients/{cid}/recommendations/{rec['id']}/decision", json={"decision": "approve"}).json()
+    assert out["status"] == "failed" and db.get(Ad, rec["ad_id"]).status == "active"

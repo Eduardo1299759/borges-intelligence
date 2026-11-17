@@ -2,18 +2,21 @@
 
 AGENTS = [
     {"code": "00", "name": "Borges Core", "role": "Diretor estratégico", "status": "active", "phase": 1,
-     "capability": "Orquestra validação, auditoria, finanças e motor de decisão por regras determinísticas. "
-                   "Sem LLM nesta fase."},
+     "capability": "Orquestra validação, auditoria, especialistas e finanças, resolve conflitos e prioriza por "
+                   "impacto. Regras determinísticas, sem LLM."},
     {"code": "01", "name": "Data Intelligence", "role": "Coleta e validação de dados", "status": "active", "phase": 2,
      "capability": "Sincroniza Meta e Google via Windsor.ai (leitura), normaliza, detecta lacunas, dados "
                    "desatualizados e divergências entre campanha e anúncios. Sem GA4/CRM ainda."},
     {"code": "02", "name": "Performance Auditor", "role": "Auditoria de contas", "status": "partial", "phase": 3,
-     "capability": "Audita campanhas (amostra, rastreamento, fadiga, CAC, escala). Ainda não diagnostica por anúncio."},
-    {"code": "03", "name": "Meta Ads Specialist", "role": "Estrutura e otimização Meta", "status": "planned",
+     "capability": "Audita campanhas (amostra, rastreamento, fadiga, CAC, escala) e entrega o retrato "
+                   "aos especialistas."},
+    {"code": "03", "name": "Meta Ads Specialist", "role": "Estrutura e otimização Meta", "status": "partial",
      "phase": 3,
-     "capability": ""},
-    {"code": "04", "name": "Google Ads Specialist", "role": "Estrutura e otimização Google", "status": "planned",
-     "phase": 3, "capability": ""},
+     "capability": "Diagnóstico por anúncio: gasto sem resultado, custo por lead fora da curva e verba "
+                   "pulverizada. Pausa anúncio (simulado em demonstração)."},
+    {"code": "04", "name": "Google Ads Specialist", "role": "Estrutura e otimização Google", "status": "partial",
+     "phase": 3, "capability": "Diagnóstico por grupo de anúncios e conversões sem valor configurado. "
+                               "Sem termos de pesquisa nem palavras-chave ainda."},
     {"code": "05", "name": "Creative Intelligence", "role": "Análise e criação de criativos", "status": "planned",
      "phase": 4, "capability": ""},
     {"code": "06", "name": "Competitive Intelligence", "role": "Inteligência competitiva", "status": "planned",

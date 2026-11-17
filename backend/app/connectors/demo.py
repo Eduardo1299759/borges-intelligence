@@ -117,27 +117,30 @@ class DemoConnector:
                 sales.append(SaleRecord(f"demo-{s.key}", day, n_sales, Decimal(f"{revenue:.2f}")))
         return metrics, sales
 
-    def _structure(self) -> tuple[list[AdSetRecord], list[AdRecord], dict[str, list[tuple[str, str | None, float]]]]:
+    def _structure(self) -> tuple[list[AdSetRecord], list[AdRecord],
+                                  dict[str, list[tuple[str, str | None, float, float]]]]:
         """Conjuntos e anúncios de cada campanha, com a fração do resultado que cabe a cada um."""
         ad_sets: list[AdSetRecord] = []
         ads: list[AdRecord] = []
-        shares: dict[str, list[tuple[str, str | None, float]]] = {}
+        shares: dict[str, list[tuple[str, str | None, float, float]]] = {}
         for s in SCENARIOS:
             cid = f"demo-{s.key}"
+            # (nome, fração do investimento, fração dos resultados). "Imagem combo" gasta e não converte:
+            # é o caso que o Meta Ads Specialist precisa encontrar.
             if s.platform == "meta":
-                layout = [("Público amplo", [("Vídeo depoimento", 0.40), ("Imagem oferta", 0.25)]),
-                          ("Interesses", [("Carrossel cardápio", 0.22), ("Imagem combo", 0.13)])]
+                layout = [("Público amplo", [("Vídeo depoimento", 0.40, 0.52), ("Imagem oferta", 0.25, 0.28)]),
+                          ("Interesses", [("Carrossel cardápio", 0.22, 0.20), ("Imagem combo", 0.13, 0.0)])]
             else:  # Google: o nível mais baixo aqui é o grupo de anúncios
-                layout = [("Grupo principal", [(None, 0.65)]), ("Grupo secundário", [(None, 0.35)])]
+                layout = [("Grupo principal", [(None, 0.65, 0.65)]), ("Grupo secundário", [(None, 0.35, 0.35)])]
             shares[cid] = []
             for i, (set_name, items) in enumerate(layout, 1):
                 set_id = f"{cid}-set{i}"
                 ad_sets.append(AdSetRecord(cid, set_id, set_name, "active"))
-                for j, (ad_name, share) in enumerate(items, 1):
+                for j, (ad_name, share, result_share) in enumerate(items, 1):
                     ad_id = f"{set_id}-ad{j}" if ad_name else None
                     if ad_id:
                         ads.append(AdRecord(set_id, ad_id, ad_name, "active"))
-                    shares[cid].append((set_id, ad_id, share))
+                    shares[cid].append((set_id, ad_id, share, result_share))
         return ad_sets, ads, shares
 
     def fetch(self, start: date, end: date) -> Payload:
@@ -149,15 +152,18 @@ class DemoConnector:
         for m in metrics:
             parts = shares[m.campaign_external_id]
             left = {f: getattr(m, f) for f in _SPLIT}
-            for n, (set_id, ad_id, share) in enumerate(parts):
-                last = n == len(parts) - 1
+            # De trás para a frente: a sobra dos arredondamentos fica com o primeiro (maior) anúncio,
+            # e um anúncio com fração zero de resultados recebe exatamente zero.
+            for n, (set_id, ad_id, share, result_share) in reversed(list(enumerate(parts))):
+                last = n == 0
                 row = {}
                 for f in _SPLIT:
                     total = getattr(m, f)
+                    frac = result_share if f in _RESULTS else share
                     if isinstance(total, Decimal):
-                        value = left[f] if last else (total * Decimal(str(share))).quantize(Decimal("0.01"))
+                        value = left[f] if last else (total * Decimal(str(frac))).quantize(Decimal("0.01"))
                     else:
-                        value = left[f] if last else int(total * share)
+                        value = left[f] if last else int(total * frac)
                     left[f] -= value  # o último recebe o resto: a soma fecha exatamente com a campanha
                     row[f] = value
                 breakdown.append(BreakdownRecord(m.campaign_external_id, set_id, ad_id, m.date, **row))
@@ -166,3 +172,4 @@ class DemoConnector:
 
 
 _SPLIT = ("spend", "impressions", "clicks", "link_clicks", "leads", "attributed_purchases", "attributed_revenue")
+_RESULTS = {"leads", "attributed_purchases", "attributed_revenue"}

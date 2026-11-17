@@ -25,7 +25,7 @@ assert(E2E_EMAIL && E2E_PASSWORD, "Defina E2E_EMAIL e E2E_PASSWORD");
   await page.goto(BASE + "/");
   await page.waitForURL("**/login");
   step("rota protegida redireciona para o login");
-  await page.getByLabel("E-mail").fill(E2E_EMAIL);
+  await page.getByLabel("Login").fill(E2E_EMAIL);
   await page.getByLabel("Senha").fill("senha-errada");
   await page.getByRole("button", { name: "Entrar" }).click();
   await page.getByRole("alert").filter({ hasText: "inválidos" }).waitFor();
@@ -70,7 +70,7 @@ assert(E2E_EMAIL && E2E_PASSWORD, "Defina E2E_EMAIL e E2E_PASSWORD");
   await nav("Central de inteligência");
   await page.getByLabel("Pergunta ao Borges Core").fill("Existe alguma campanha que vale a pena escalar?");
   await page.getByRole("button", { name: "Analisar" }).click();
-  await page.getByText("Recomendações (6)").waitFor();
+  await page.getByText("Recomendações (9)").waitFor();
   const scale = page.locator("article").filter({ hasText: "Escalar “Remarketing — Cardápio digital”" });
   await scale.getByText("Relacionada à pergunta").waitFor();
   await scale.getByRole("button").first().click();
@@ -79,23 +79,28 @@ assert(E2E_EMAIL && E2E_PASSWORD, "Defina E2E_EMAIL e E2E_PASSWORD");
   }
   await scale.getByRole("cell", { name: "ROAS confirmado" }).waitFor();
   await shot("3-inteligencia");
-  step("análise retornou 6 recomendações estruturadas com evidências");
+  step("análise retornou 9 recomendações estruturadas (6 de campanha + 3 do Meta Ads Specialist)");
 
   // 8. Aprovar e rejeitar ações simuladas
   await nav("Central de aprovação");
-  await page.getByRole("tab", { name: "Pendentes (4)" }).waitFor();
+  await page.getByRole("tab", { name: "Pendentes (7)" }).waitFor();
   await shot("4-aprovacoes");
   const pendingScale = page.locator("article").filter({ hasText: "Escalar “Remarketing" });
   await pendingScale.getByLabel("Comentário da decisão").fill("Aprovado no teste E2E");
   await pendingScale.getByRole("button", { name: "Aprovar e executar" }).click();
-  await page.getByRole("tab", { name: "Pendentes (3)" }).waitFor();
+  await page.getByRole("tab", { name: "Pendentes (6)" }).waitFor();
   const pendingTracking = page.locator("article").filter({ hasText: "Auditar rastreamento" });
   await pendingTracking.getByRole("button", { name: "Rejeitar" }).click();
-  await page.getByRole("tab", { name: "Pendentes (2)" }).waitFor();
-  step("uma ação aprovada (execução simulada) e uma rejeitada");
+  await page.getByRole("tab", { name: "Pendentes (5)" }).waitFor();
+  const pause = page.locator("article:visible").filter({ hasText: "Pausar “Imagem combo” em “Remarketing" });
+  await pause.locator("p", { hasText: "→ anúncio “Imagem combo”" }).first().waitFor();
+  await pause.getByText("Prévia da mudança").waitFor();
+  await pause.getByRole("button", { name: "Aprovar e executar" }).click();
+  await page.getByRole("tab", { name: "Pendentes (4)" }).waitFor();
+  step("orçamento aprovado (simulado), rastreamento rejeitado e anúncio pausado (simulado)");
 
   // 9. Resultado no histórico
-  await page.getByRole("tab", { name: "Histórico (2)" }).click();
+  await page.getByRole("tab", { name: "Histórico (3)" }).click();
   const done = page.locator("article").filter({ hasText: "Escalar “Remarketing" });
   await done.getByText("Concluída", { exact: true }).waitFor();
   await done.getByRole("button").first().click();
@@ -107,10 +112,12 @@ assert(E2E_EMAIL && E2E_PASSWORD, "Defina E2E_EMAIL e E2E_PASSWORD");
   await nav("Gestor de campanhas");
   const row = page.getByRole("row").filter({ hasText: "Remarketing — Cardápio digital" });
   await row.getByText("R$ 72,00").waitFor();
-  await row.getByText("1 alteração(ões)").waitFor();
+  await row.getByText("2 alteração(ões)").waitFor();
+  await page.getByRole("button", { name: /Remarketing — Cardápio digital/ }).click();
+  await page.getByRole("row").filter({ hasText: "Imagem combo" }).getByText("Pausado").waitFor();
   await shot("6-campanhas");
   await nav("Auditoria");
-  await page.getByText("Execução concluída e verificada").waitFor();
+  await page.getByText("Execução concluída e verificada").nth(1).waitFor(); // orçamento + pausa
   await page.getByRole("button", { name: "Verificar integridade" }).click();
   await page.getByText(/Cadeia íntegra: \d+ registro/).waitFor();
   await shot("7-auditoria");

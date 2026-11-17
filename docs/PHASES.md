@@ -57,9 +57,26 @@
 - Vendas confirmadas para clientes reais (CRM, Fase 5): sem elas, CAC real e ROAS confirmado ficam
   indisponíveis e as regras de eficiência não rodam.
 
-## Fase 3 — Agentes e diagnóstico
-Provedor de LLM atrás de interface (com controle de custo), interpretação da pergunta, especialistas
-Meta e Google, diagnóstico por conjunto/anúncio/termo de pesquisa.
+## Fase 3 — Agentes e diagnóstico ✅ (parcial: sem LLM)
+
+**Entregue**
+- Meta Ads Specialist: anúncio gastando sem resultado (≥ 3x o custo por lead da campanha, zero leads),
+  custo por lead fora da curva (≥ 1,5x a campanha) e verba pulverizada em muitos anúncios.
+- Google Ads Specialist: grupo de anúncios gastando sem converter e conversões sem valor configurado.
+- Borges Core: combina campanha e anúncio, não deixa os especialistas opinarem quando a campanha tem
+  amostra insuficiente ou rastreamento duvidoso, deduplica pendências por campanha/regra/anúncio e
+  prioriza pela participação real da entidade no investimento.
+- Nova ação executável: pausar anúncio (simulada em demonstração, bloqueada em cliente real), com as
+  mesmas verificações, idempotência, releitura e auditoria do ajuste de orçamento.
+- Recomendações mostram campanha → conjunto/grupo → anúncio; o Gestor de campanhas mostra anúncios pausados.
+
+**Como é verificado:** `tests/test_specialists.py` (cada regra com números controlados),
+`tests/test_api_flow.py` (análise, pausa simulada, bloqueio em cliente real) e `e2e/mvp.cjs` no navegador.
+
+**Não feito nesta fase**
+- Interpretação da pergunta em linguagem natural e redação por LLM: depende de decisão sobre custo de IA.
+- Termos de pesquisa, palavras-chave e negativas do Google (o conector ainda não lê esses relatórios).
+- Dimensões (posicionamento, região, horário, dispositivo).
 
 ## Fase 4 — Competitiva e criativa
 Meta Ad Library, análise de criativos, briefings, geração de imagens, motor de experimentos.

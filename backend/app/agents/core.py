@@ -11,8 +11,9 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.agents import data_intelligence, financial, performance_auditor
+from app.agents import data_intelligence, financial, performance_auditor, specialists
 from app.decision import engine
+from app.decision.specialists import evaluate_entities
 from app.models import REC_ADJUST, REC_AWAITING, REC_INFO, AnalysisRun, Client, Recommendation, User
 from app.services import audit
 
@@ -22,7 +23,15 @@ TOPICS = {
     "creative_fatigue": ("criativo", "fadiga", "ctr", "anúncio", "anuncio"),
     "tracking_divergence": ("rastreamento", "tracking", "atribuição", "atribuicao", "pixel", "conversão"),
     "scale_winner": ("escalar", "escala", "aumentar", "orçamento", "orcamento", "roas"),
+    "ad_no_results": ("anúncio", "anuncio", "pausar", "desperdício", "desperdicio", "sem resultado"),
+    "ad_cpl_outlier": ("anúncio", "anuncio", "criativo", "custo por lead", "cpl"),
+    "ad_dilution": ("estrutura", "consolidar", "anúncios", "anuncios"),
+    "conversion_value_missing": ("conversão", "conversao", "valor", "rastreamento", "google"),
 }
+
+# Com estes diagnósticos de campanha, os especialistas não opinam sobre anúncios: os dados são poucos
+# demais ou não confiáveis, e uma recomendação de anúncio esconderia o problema principal.
+SUPPRESS_SPECIALISTS = {"insufficient_sample", "tracking_divergence"}
 
 
 def analyze(db: Session, client: Client, user: User | None, question: str, start: date, end: date) -> AnalysisRun:
@@ -46,23 +55,30 @@ def analyze(db: Session, client: Client, user: User | None, question: str, start
 
     sources = " + ".join(quality["sources"])
     acc, snapshots = performance_auditor.build(db, client, start, end, sources)
-    drafts = engine.prioritize([engine.evaluate(s, acc) for s in snapshots], {s.campaign_id: s for s in snapshots})
+    campaign_drafts = [engine.evaluate(s, acc) for s in snapshots]
+    entities = specialists.entity_stats(db, client, start, end)
+    specialist_drafts = []
+    for snap, draft in zip(snapshots, campaign_drafts, strict=True):
+        if draft.rule not in SUPPRESS_SPECIALISTS:
+            specialist_drafts += evaluate_entities(snap, entities.get(snap.campaign_id, []), acc)
+    drafts = engine.prioritize(campaign_drafts + specialist_drafts, {s.campaign_id: s for s in snapshots})
 
     open_recs = {
-        (r.campaign_id, r.rule): r
+        (r.campaign_id, r.rule, r.ad_set_id, r.ad_id): r
         for r in db.scalars(select(Recommendation).where(
             Recommendation.client_id == client.id, Recommendation.status.in_([REC_AWAITING, REC_ADJUST])))
     }
     ids: list[int] = []
     reused = 0
     for d in drafts:
-        existing = open_recs.get((d.campaign_id, d.rule))
+        existing = open_recs.get((d.campaign_id, d.rule, d.ad_set_id, d.ad_id))
         if existing is not None:  # já há uma pendência idêntica: não duplicar na fila de aprovação
             ids.append(existing.id)
             reused += 1
             continue
         rec = Recommendation(
-            client_id=client.id, analysis_run_id=run.id, campaign_id=d.campaign_id, agent=d.agent, rule=d.rule,
+            client_id=client.id, analysis_run_id=run.id, campaign_id=d.campaign_id, ad_set_id=d.ad_set_id,
+            ad_id=d.ad_id, agent=d.agent, rule=d.rule,
             title=d.title, problem=d.problem, evidence=d.evidence, probable_cause=d.probable_cause,
             alternatives=d.alternatives, hypothesis=d.hypothesis, action_type=d.action_type,
             action_payload=d.action_payload, recommended_action=d.recommended_action,
@@ -80,8 +96,10 @@ def analyze(db: Session, client: Client, user: User | None, question: str, start
     matched = [i for i, d in zip(ids, drafts, strict=True) if d.rule in asked_rules]
     actionable = sum(1 for d in drafts if d.requires_approval)
     answer = (
-        f"Analisei {len(drafts)} campanha(s) de {period}"
+        f"Analisei {len(campaign_drafts)} campanha(s) de {period}"
         + (" com DADOS DEMONSTRATIVOS" if run.is_demo else "")
+        + (f", e os especialistas Meta e Google encontraram {len(specialist_drafts)} ponto(s) em anúncios e "
+           "grupos de anúncios" if specialist_drafts else "")
         + f". {actionable} recomendação(ões) exigem sua aprovação e {len(drafts) - actionable} campanha(s) devem "
         "ser mantidas sem alteração."
     )
@@ -95,10 +113,12 @@ def analyze(db: Session, client: Client, user: User | None, question: str, start
         "answer": answer, "period": period, "data_quality": quality,
         "finance": financial.assess(acc.kpis, client),
         "recommendation_ids": ids, "matched_ids": matched,
-        "agents": ["Borges Core", "Data Intelligence", "Performance Auditor", "Financial Intelligence"],
+        "agents": ["Borges Core", "Data Intelligence", "Performance Auditor", "Meta Ads Specialist",
+                   "Google Ads Specialist", "Financial Intelligence"],
         "method": "Regras determinísticas (sem LLM).",
     }
     audit.record(db, action="analysis.completed", actor=user, client_id=client.id, entity_type="analysis_run",
                  entity_id=run.id,
-                 details={"period": period, "campaigns": len(drafts), "recommendation_ids": ids, "reused": reused})
+                 details={"period": period, "campaigns": len(campaign_drafts),
+                          "specialist_findings": len(specialist_drafts), "recommendation_ids": ids, "reused": reused})
     return run

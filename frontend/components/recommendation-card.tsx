@@ -33,6 +33,9 @@ export function RecommendationCard({
   const pending = rec.status === "awaiting_approval" || rec.status === "adjustment_requested";
   const p = rec.action_payload;
   const isBudget = rec.action_type === "adjust_budget" && p.from !== undefined && p.to !== undefined;
+  const isPause = rec.action_type === "pause_ad" && p.ad_id !== undefined;
+  const executable = isBudget || isPause;
+  const AD_STATUS: Record<string, string> = { active: "ativo", paused: "pausado" };
 
   async function decide(decision: "approve" | "reject" | "request_adjustment") {
     setBusy(true);
@@ -63,6 +66,12 @@ export function RecommendationCard({
           <p className="mt-0.5 text-xs text-muted">
             {rec.agent} · {rec.platform === "meta" ? "Meta Ads" : rec.platform === "google" ? "Google Ads" : "Conta"} · #{rec.id}
           </p>
+          {(rec.ad_set_name || rec.ad_name) && (
+            <p className="mt-0.5 text-xs text-muted">
+              Campanha “{rec.campaign_name}”{rec.ad_set_name && <> → {rec.platform === "google" ? "grupo" : "conjunto"} “{rec.ad_set_name}”</>}
+              {rec.ad_name && <> → anúncio “{rec.ad_name}”</>}
+            </p>
+          )}
         </div>
         <span aria-hidden className="mt-1 text-muted">{open ? "−" : "+"}</span>
       </button>
@@ -118,14 +127,29 @@ export function RecommendationCard({
             </div>
           )}
 
+          {isPause && (
+            <div className="rounded-lg border border-azure-100 bg-azure-50 px-4 py-3 text-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-azure-700">Prévia da mudança</p>
+              <p className="mt-1 text-navy-900">
+                Anúncio “{rec.ad_name}”: <strong>{AD_STATUS[rec.ad_status ?? ""] ?? rec.ad_status ?? "—"}</strong> → <strong>pausado</strong>
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {rec.is_demo ? "Execução simulada: altera apenas o anúncio demonstrativo dentro do Borges." : "Cliente real: não há conector de escrita autorizado; a execução será bloqueada."}
+              </p>
+            </div>
+          )}
+
           {rec.executions.map((ex) => (
             <div key={ex.id} className="rounded-lg border border-line px-4 py-3 text-sm">
               <p className="font-medium text-navy-900">
                 Execução #{ex.id} · {ex.mode === "simulated" ? "simulada" : "real"} · {ex.status === "completed" ? "concluída" : "falhou"}
                 {ex.verified && " · verificada por releitura"}
               </p>
-              {ex.before_state && ex.after_state && (
+              {ex.before_state?.daily_budget !== undefined && ex.after_state?.daily_budget !== undefined && (
                 <p className="mt-1 text-muted">Orçamento diário: {money(ex.before_state.daily_budget, currency)} → {money(ex.after_state.daily_budget, currency)}</p>
+              )}
+              {ex.before_state?.ad_status && ex.after_state?.ad_status && (
+                <p className="mt-1 text-muted">Status do anúncio: {AD_STATUS[ex.before_state.ad_status] ?? ex.before_state.ad_status} → {AD_STATUS[ex.after_state.ad_status] ?? ex.after_state.ad_status}</p>
               )}
               {ex.error && <p className="mt-1 text-rose-700">{ex.error}</p>}
               <ul className="mt-2 space-y-0.5 text-xs">
@@ -152,7 +176,7 @@ export function RecommendationCard({
               {error && <Notice tone="error">{error}</Notice>}
               <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} maxLength={2000} placeholder="Comentário (obrigatório ao solicitar ajuste)" aria-label="Comentário da decisão" className={inputClass} />
               <div className="flex flex-wrap gap-2">
-                <Button disabled={busy} onClick={() => decide("approve")}>{isBudget ? "Aprovar e executar" : "Aprovar"}</Button>
+                <Button disabled={busy} onClick={() => decide("approve")}>{executable ? "Aprovar e executar" : "Aprovar"}</Button>
                 <Button variant="secondary" disabled={busy || !comment.trim()} onClick={() => decide("request_adjustment")}>Solicitar ajuste</Button>
                 <Button variant="danger" disabled={busy} onClick={() => decide("reject")}>Rejeitar</Button>
               </div>

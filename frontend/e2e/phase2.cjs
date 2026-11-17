@@ -24,7 +24,7 @@ assert(E2E_EMAIL && E2E_PASSWORD, "Defina E2E_EMAIL e E2E_PASSWORD");
   const clientName = `Studio Real ${Date.now()}`;
 
   await page.goto(BASE + "/login");
-  await page.getByLabel("E-mail").fill(E2E_EMAIL);
+  await page.getByLabel("Login").fill(E2E_EMAIL);
   await page.getByLabel("Senha").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Entrar" }).click();
   await page.getByRole("heading", { name: "Visão geral" }).waitFor();
@@ -94,9 +94,10 @@ assert(E2E_EMAIL && E2E_PASSWORD, "Defina E2E_EMAIL e E2E_PASSWORD");
   await nav("Central de inteligência");
   await page.getByLabel("Pergunta ao Borges Core").fill("Como está o CAC?");
   await page.getByRole("button", { name: "Analisar" }).click();
-  await page.getByText("Recomendações (2)").waitFor();
+  await page.getByText("Recomendações (3)").waitFor();
+  await page.locator("article:visible").filter({ hasText: "Configurar valor das conversões" }).first().waitFor();
   assert.equal(await page.locator("article:visible").filter({ hasText: "Demonstração" }).count(), 0);
-  step("análise sobre dados da fonte, sem selo de demonstração");
+  step("análise sobre dados da fonte, sem selo de demonstração; Google Ads Specialist apontou conversões sem valor");
 
   assert.deepEqual(errors, [], "erros de JavaScript na página");
   await browser.close();

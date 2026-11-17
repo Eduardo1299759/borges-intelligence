@@ -3,7 +3,7 @@
 Plataforma de inteligência para gestão, análise e otimização de tráfego pago, operada por agentes
 especializados coordenados pelo **Borges Core**.
 
-**Estado atual: Fases 1 e 2 implementadas.** O conector Windsor.ai segue a documentação oficial e foi
+**Estado atual: Fases 1, 2 e 3 (sem LLM) implementadas.** O conector Windsor.ai segue a documentação oficial e foi
 conferido com linhas reais; falta apenas uma sincronização completa com uma chave real. Veja [docs/PHASES.md](docs/PHASES.md)
 para o que existe, o que é simulado e o que vem a seguir, e [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 para as decisões técnicas.

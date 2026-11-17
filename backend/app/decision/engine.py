@@ -74,6 +74,11 @@ class Draft:
     action_payload: dict[str, Any] = field(default_factory=dict)
     priority: str = "baixa"
     priority_score: int = 0
+    # Nível de anúncio (preenchidos pelos especialistas). spend_share, quando presente, é a participação
+    # da entidade no investimento da conta e substitui a da campanha no cálculo de prioridade.
+    ad_set_id: int | None = None
+    ad_id: int | None = None
+    spend_share: float | None = None
 
 
 def brl(v: float | None) -> str:
@@ -314,7 +319,7 @@ def _budget_draft(s: CampaignSnapshot, acc: AccountContext, *, direction: int, r
 def prioritize(drafts: list[Draft], snapshots: dict[int, CampaignSnapshot]) -> list[Draft]:
     """Prioridade = participação no investimento x severidade da regra (impacto financeiro em jogo)."""
     for d in drafts:
-        share = snapshots[d.campaign_id].spend_share or 0.0
+        share = d.spend_share if d.spend_share is not None else (snapshots[d.campaign_id].spend_share or 0.0)
         d.priority_score = int(round(min(100.0, share * 100 * d.severity)))
         d.priority = "alta" if d.priority_score >= 25 else "média" if d.priority_score >= 10 else "baixa"
     return sorted(drafts, key=lambda d: d.priority_score, reverse=True)

@@ -144,7 +144,11 @@ def test_analysis_on_live_data_does_not_invent_efficiency_conclusions(admin, liv
     a = admin.post(f"/api/clients/{cid}/analyses", json={"question": "Como está o CAC?", "days": 30}).json()
     assert a["is_demo"] is False and "DEMONSTRATIVOS" not in a["summary"]["answer"]
     rules = {r["rule"] for r in a["recommendations"]}
-    assert rules <= {"keep", "insufficient_sample", "creative_fatigue"}  # nenhuma regra de CAC/ROAS sem vendas
+    # nenhuma regra de CAC/ROAS sem vendas confirmadas
+    assert rules <= {"keep", "insufficient_sample", "creative_fatigue", "conversion_value_missing"}
+    # Google Ads Specialist: conversões com valor zero (formato visto em contas reais)
+    value = next(r for r in a["recommendations"] if r["rule"] == "conversion_value_missing")
+    assert value["platform"] == "google" and value["action_type"] == "tracking_fix"
     assert all(not r["is_demo"] and all(e["source"] == "windsor" for e in r["evidence"]) for r in a["recommendations"])
     assert a["summary"]["finance"]["real_cac"] is None
     keep = next(r for r in a["recommendations"] if r["rule"] == "keep")

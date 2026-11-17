@@ -16,7 +16,10 @@ function BreakdownRow({ node, cur, indent }: { node: BreakdownNode; cur: string;
   const k = node.kpis;
   return (
     <tr className="border-t border-line">
-      <td className={`py-2 pr-3 ${indent ? "pl-8 text-muted" : "pl-3 font-medium text-navy-900"}`}>{node.name}</td>
+      <td className={`py-2 pr-3 ${indent ? "pl-8 text-muted" : "pl-3 font-medium text-navy-900"}`}>
+        {node.name}
+        {node.status === "paused" && <span className="ml-2"><Badge tone="amber">Pausado</Badge></span>}
+      </td>
       <td className="px-3 py-2 text-right">{money(k.spend, cur)}</td>
       <td className="px-3 py-2 text-right">{int(k.impressions)}</td>
       <td className="px-3 py-2 text-right">{pct(k.ctr, 2)}</td>
@@ -118,7 +121,7 @@ export default function CampaignsPage() {
                               <ul className="mt-1 space-y-1">
                                 {c.changes.map((ch) => (
                                   <li key={ch.execution_id}>
-                                    {dateTime(ch.finished_at)} — {ch.before && ch.after ? `orçamento diário ${money(ch.before.daily_budget, cur)} → ${money(ch.after.daily_budget, cur)}` : ch.title}{" "}
+                                    {dateTime(ch.finished_at)} — {ch.before?.daily_budget !== undefined && ch.after?.daily_budget !== undefined ? `orçamento diário ${money(ch.before.daily_budget, cur)} → ${money(ch.after.daily_budget, cur)}` : ch.title}{" "}
                                     <span className="text-muted">({ch.mode === "simulated" ? "simulada" : "real"}, {ch.status === "completed" ? "concluída" : "falhou"}{ch.verified ? ", verificada" : ""})</span>
                                   </li>
                                 ))}

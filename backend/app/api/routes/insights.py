@@ -153,9 +153,10 @@ def campaign_breakdown(client_id: int, campaign_id: int, days: int = Query(30, g
             values = {c: (float(v) if v is not None else None) for c, v in zip(cols, r[2:], strict=True)}
             total = total + Totals(**values)
             if r[1] is not None:
-                ads.append({"id": r[1], "name": names[r[1]].name, "kpis": kpis(values)})
+                ads.append({"id": r[1], "name": names[r[1]].name, "status": names[r[1]].status,
+                            "kpis": kpis(values)})
         ads.sort(key=lambda a: a["kpis"]["spend"] or 0, reverse=True)
-        out.append({"id": ad_set.id, "name": ad_set.name,
+        out.append({"id": ad_set.id, "name": ad_set.name, "status": ad_set.status,
                     "kpis": kpis({c: getattr(total, c) for c in cols}), "ads": ads})
     out.sort(key=lambda s: s["kpis"]["spend"] or 0, reverse=True)
     return {"campaign_id": campaign.id, "platform": campaign.platform,
