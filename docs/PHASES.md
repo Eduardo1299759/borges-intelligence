@@ -57,7 +57,7 @@
 - Vendas confirmadas para clientes reais (CRM, Fase 5): sem elas, CAC real e ROAS confirmado ficam
   indisponíveis e as regras de eficiência não rodam.
 
-## Fase 3 — Agentes e diagnóstico ✅ (parcial: sem LLM)
+## Fase 3 — Agentes e diagnóstico ✅
 
 **Entregue**
 - Meta Ads Specialist: anúncio gastando sem resultado (≥ 3x o custo por lead da campanha, zero leads),
@@ -70,11 +70,15 @@
   mesmas verificações, idempotência, releitura e auditoria do ajuste de orçamento.
 - Recomendações mostram campanha → conjunto/grupo → anúncio; o Gestor de campanhas mostra anúncios pausados.
 
-**Como é verificado:** `tests/test_specialists.py` (cada regra com números controlados),
+- IA da Anthropic no Borges Core (opcional, desligada por padrão): interpreta a pergunta e redige a
+  resposta a partir dos fatos calculados, com limite de gasto mensal, chave cifrada, reserva automática
+  quando o modelo recusa, e descarte da resposta se ela citar números que não estão nos dados.
+
+**Como é verificado:** `tests/test_ai.py` (salvaguardas e formato real da chamada pelo SDK oficial),
+`e2e/ai.cjs` (contra uma Anthropic falsa), `tests/test_specialists.py` (cada regra com números controlados),
 `tests/test_api_flow.py` (análise, pausa simulada, bloqueio em cliente real) e `e2e/mvp.cjs` no navegador.
 
 **Não feito nesta fase**
-- Interpretação da pergunta em linguagem natural e redação por LLM: depende de decisão sobre custo de IA.
 - Termos de pesquisa, palavras-chave e negativas do Google (o conector ainda não lê esses relatórios).
 - Dimensões (posicionamento, região, horário, dispositivo).
 

@@ -336,3 +336,35 @@ class AuditLog(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSON)
     prev_hash: Mapped[str] = mapped_column(String(64))
     hash: Mapped[str] = mapped_column(String(64), unique=True)
+
+
+class AISettings(Base):
+    """Configuração da IA (Anthropic) da instalação. Linha única (id=1). A chave só existe cifrada."""
+
+    __tablename__ = "ai_settings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text)
+    key_hint: Mapped[str | None] = mapped_column(String(8))
+    model: Mapped[str] = mapped_column(String(60), default="claude-opus-5-5")
+    effort: Mapped[str] = mapped_column(String(10), default="medium")
+    monthly_cap_usd: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("10"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AIUsage(Base):
+    """Cada chamada (ou tentativa bloqueada) à IA, com tokens e custo em dólares."""
+
+    __tablename__ = "ai_usage"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"), index=True)
+    analysis_run_id: Mapped[int | None] = mapped_column(ForeignKey("analysis_runs.id", ondelete="SET NULL"))
+    purpose: Mapped[str] = mapped_column(String(40))
+    model: Mapped[str] = mapped_column(String(60))
+    # ok | refused | error | blocked_budget | rejected_validation
+    status: Mapped[str] = mapped_column(String(30))
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 4), default=Decimal("0"))
+    detail: Mapped[str | None] = mapped_column(Text)

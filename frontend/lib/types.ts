@@ -47,7 +47,8 @@ export interface Analysis {
   id: number; question: string; period_start: string; period_end: string; status: string; is_demo: boolean;
   created_at: string; recommendations: Recommendation[];
   summary: { answer: string; data_quality: DataQuality; finance: Finance | null; matched_ids: number[];
-             method?: string; agents?: string[] } | null;
+             method?: string; agents?: string[];
+             ai?: { used: boolean; model?: string; cost_usd?: number; rules_answer?: string; note?: string } } | null;
 }
 
 export interface Dashboard {
@@ -94,3 +95,13 @@ export interface Pacing {
 }
 export interface BreakdownNode { id: number; name: string; status?: string | null; kpis: Kpis; ads?: BreakdownNode[] }
 export interface Breakdown { campaign_id: number; platform: string; ad_sets: (BreakdownNode & { ads: BreakdownNode[] })[] }
+
+export interface AISettings {
+  enabled: boolean; configured: boolean; key_hint: string | null; model: string; effort: "low" | "medium" | "high";
+  monthly_cap_usd: number; month_spend_usd: number;
+  models: { id: string; label: string; input_per_mtok: number; output_per_mtok: number }[];
+}
+export interface AIUsageRow {
+  id: number; created_at: string; client_id: number | null; model: string; status: string;
+  input_tokens: number; output_tokens: number; cost_usd: number; detail: string | null;
+}

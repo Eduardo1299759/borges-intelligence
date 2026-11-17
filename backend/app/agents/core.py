@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.agents import data_intelligence, financial, performance_auditor, specialists
+from app.ai import narrator
 from app.decision import engine
 from app.decision.specialists import evaluate_entities
 from app.models import REC_ADJUST, REC_AWAITING, REC_INFO, AnalysisRun, Client, Recommendation, User
@@ -108,17 +109,67 @@ def analyze(db: Session, client: Client, user: User | None, question: str, start
     if asked_rules and not matched:
         answer += " Não encontrei evidências, nos dados atuais, do problema específico mencionado na pergunta."
 
+    finance = financial.assess(acc.kpis, client)
+    ai_info: dict = {"used": False}
+    facts = _facts(client, run, period, quality, finance, acc.kpis, drafts, ids)
+    llm = narrator.narrate(db, client, run.id, question, facts)
+    if llm is not None and "answer" in llm:
+        rules_answer, answer = answer, llm["answer"]
+        matched = llm["relevant_ids"]
+        ai_info = {"used": True, "model": llm["model"], "cost_usd": llm["cost_usd"], "rules_answer": rules_answer}
+    elif llm is not None:
+        ai_info = {"used": False, "note": llm["error"]}
+
     run.status = "completed"
     run.summary = {
-        "answer": answer, "period": period, "data_quality": quality,
-        "finance": financial.assess(acc.kpis, client),
+        "answer": answer, "period": period, "data_quality": quality, "ai": ai_info,
+        "finance": finance,
         "recommendation_ids": ids, "matched_ids": matched,
         "agents": ["Borges Core", "Data Intelligence", "Performance Auditor", "Meta Ads Specialist",
                    "Google Ads Specialist", "Financial Intelligence"],
-        "method": "Regras determinísticas (sem LLM).",
+        "method": (f"Diagnóstico por regras determinísticas; resposta redigida por IA ({ai_info['model']}) "
+                   "a partir desses fatos." if ai_info["used"] else "Regras determinísticas."),
     }
     audit.record(db, action="analysis.completed", actor=user, client_id=client.id, entity_type="analysis_run",
                  entity_id=run.id,
                  details={"period": period, "campaigns": len(campaign_drafts),
                           "specialist_findings": len(specialist_drafts), "recommendation_ids": ids, "reused": reused})
     return run
+
+
+def _facts(client: Client, run: AnalysisRun, period: str, quality: dict, finance: dict,
+           kpis: dict, drafts: list[engine.Draft], ids: list[int]) -> dict:
+    """Fatos enviados à IA: só agregados já calculados, com números no mesmo formato exibido no painel."""
+    def money(v):
+        return engine.brl(v)
+
+    return {
+        "client": client.name,
+        "is_demo": run.is_demo,
+        "period": period,
+        "account": {
+            "investimento": money(kpis.get("spend")), "receita_confirmada": money(kpis.get("confirmed_revenue")),
+            "receita_atribuida_plataformas": money(kpis.get("attributed_revenue")),
+            "leads": engine.num(kpis.get("leads"), 0), "vendas_confirmadas": engine.num(kpis.get("confirmed_sales"), 0),
+            "custo_por_lead": money(kpis.get("cpl")), "cac_real": money(kpis.get("real_cac")),
+            "roas_confirmado": engine.num(kpis.get("confirmed_roas")),
+            "taxa_lead_venda": engine.pct(kpis.get("lead_to_sale_rate")),
+        },
+        "targets": {
+            "cac": money(float(client.target_cac)) if client.target_cac is not None else "não informada",
+            "roas": engine.num(float(client.target_roas)) if client.target_roas is not None else "não informada",
+        },
+        "finance": {"cac_maximo_sustentavel": money(finance.get("max_sustainable_cac")),
+                    "roas_de_equilibrio": engine.num(finance.get("breakeven_roas")),
+                    "lucro_de_contribuicao": money(finance.get("contribution_profit")),
+                    "limitacoes": finance.get("limitations", [])},
+        "data_quality_issues": quality.get("issues", []),
+        "recommendations": [
+            {"id": rec_id, "rule": d.rule, "agent": d.agent, "title": d.title, "problem": d.problem,
+             "priority": d.priority, "confidence": d.confidence, "requires_approval": d.requires_approval,
+             "recommended_action": d.recommended_action, "expected_impact": d.expected_impact,
+             "evidence": [{"metric": e["metric"], "value": e["value"], "benchmark": e["benchmark"]}
+                          for e in d.evidence]}
+            for rec_id, d in zip(ids, drafts, strict=True)
+        ],
+    }

@@ -30,7 +30,19 @@ function AnalysisView({ a, clientId, currency }: { a: Analysis; clientId: number
           <span className="text-xs text-muted">{dateTime(a.created_at)} · período {day(a.period_start)} a {day(a.period_end)}</span>
         </div>
         <p className="text-xs text-muted">Pergunta: “{a.question}”</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink">{s.answer}</p>
+        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink">{s.answer}</p>
+        {s.ai?.used && (
+          <p className="mt-2 text-xs text-muted">
+            <Badge tone="cyan">Redigido por IA</Badge> {s.ai.model} · custo US$ {s.ai.cost_usd?.toFixed(4).replace(".", ",")} · números conferidos com os dados
+          </p>
+        )}
+        {s.ai?.note && <div className="mt-3"><Notice tone="warn">{s.ai.note} Abaixo, a resposta das regras.</Notice></div>}
+        {s.ai?.used && s.ai.rules_answer && (
+          <details className="mt-2 text-xs text-muted">
+            <summary className="cursor-pointer">Ver resposta das regras (sem IA)</summary>
+            <p className="mt-1">{s.ai.rules_answer}</p>
+          </details>
+        )}
         {s.method && <p className="mt-2 text-xs text-muted">Método: {s.method} Agentes: {s.agents?.join(", ")}.</p>}
       </Card>
 
@@ -102,8 +114,9 @@ export default function IntelligencePage() {
           <Card className="p-5">
             <form onSubmit={submit} className="space-y-3">
               <Notice>
-                Nesta fase o Borges Core audita todas as campanhas com regras determinísticas (sem LLM). A pergunta é registrada e
-                usada para destacar as recomendações do tema; ela não é interpretada em linguagem natural.
+                O diagnóstico e as recomendações vêm sempre de regras auditáveis. Com a IA ativada em Configurações, o Borges Core
+                também interpreta a pergunta e redige a resposta a partir desses dados; sem ela, a pergunta só destaca as
+                recomendações do tema.
               </Notice>
               <textarea required minLength={3} maxLength={1000} rows={2} value={question} onChange={(e) => setQuestion(e.target.value)}
                 disabled={!canAnalyze} placeholder="Ex.: Quais campanhas estão com CAC acima do sustentável?" aria-label="Pergunta ao Borges Core" className={inputClass} />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useApp } from "@/components/app-context";
 import { AccountCard } from "@/components/account-card";
+import { AICard } from "@/components/ai-card";
 import { IntegrationPanel } from "@/components/integration-panel";
 import { Badge, Card, CardHeader, PageTitle } from "@/components/ui";
 import { useApi } from "@/lib/api";
@@ -21,6 +22,7 @@ export default function SettingsPage() {
     <>
       <PageTitle title="Configurações" subtitle="Sua conta, integrações, limites de execução e custos." />
       <div className="mb-6"><AccountCard user={user} /></div>
+      <div className="mb-6"><AICard isAdmin={user.role === "admin"} canSeeUsage={user.role === "admin" || user.role === "manager"} /></div>
       {client && <div className="mb-6"><IntegrationPanel key={client.id} client={client} canManage={canManage} /></div>}
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -53,10 +55,6 @@ export default function SettingsPage() {
                 </li>
               ))}
             </ul>
-          </Card>
-          <Card>
-            <CardHeader title="Custos de uso de IA" />
-            <p className="px-5 py-4 text-sm text-muted">Nenhum. Esta versão não chama modelos de linguagem nem serviços pagos: o Borges Core opera com regras determinísticas. O controle de custos entra junto com o provedor de LLM (Fase 3).</p>
           </Card>
           <Card>
             <CardHeader title="Automações" />

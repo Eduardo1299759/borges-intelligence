@@ -22,7 +22,7 @@ Navegador ──> Next.js ──(/api, proxy same-origin)──> FastAPI ──>
 | Proxy `/api` no Next.js | Sessão em cookie `httpOnly` + `SameSite=Lax` same-origin: sem token em `localStorage`, sem CORS. |
 | SQLite como padrão local, PostgreSQL em Docker/produção | Rodar sem dependências; a suíte passa nos dois bancos. |
 | **Sem Redis/filas na Fase 1** | Ainda não há trabalho assíncrono. Entram com o agendador (Fase 6). |
-| **Borges Core determinístico, sem LLM** | Regras auditáveis e testáveis, custo zero. O LLM entra na Fase 3 atrás de uma interface, para redigir e interpretar — não para substituir os cálculos. |
+| **Regras decidem; IA só redige** | Diagnóstico e recomendações vêm de regras auditáveis. A IA da Anthropic (opcional) interpreta a pergunta e redige a resposta a partir desses fatos, nunca calcula nem cria recomendações. |
 | Motor de decisão em funções puras | Cada regra é testada com números controlados, sem banco. |
 | Leitura e escrita como contratos separados | Ter leitura (ex.: Windsor.ai) nunca implica poder alterar campanhas. |
 
@@ -122,6 +122,15 @@ dados reais. Prioridade = participação no investimento × severidade da regra.
 (Google) e devolve recomendações, também como funções puras. Nenhuma regra desse nível fala em CAC,
 porque vendas confirmadas só existem por campanha. Limiares e a justificativa estatística de cada regra
 estão no topo do arquivo.
+
+## IA (Anthropic)
+
+`ai/narrator.py`, pelo SDK oficial (`anthropic`). Modelo padrão Claude Opus 5.5, esforço configurável,
+saída estruturada (JSON validado) e reserva no servidor (`fallbacks: "default"`) para recusas. Salvaguardas:
+o pior custo possível da chamada é conferido contra o limite mensal antes de chamar; cada número da
+resposta precisa existir nos fatos enviados; qualquer falha devolve a resposta das regras. Uso e custo de
+cada chamada ficam em `ai_usage`. Enviados à Anthropic: nome do cliente, nomes de campanhas/anúncios e
+métricas agregadas; nenhum dado pessoal de leads.
 
 ## Execução e segurança
 
