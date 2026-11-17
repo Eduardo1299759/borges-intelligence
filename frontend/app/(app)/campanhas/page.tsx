@@ -6,11 +6,52 @@ import { NoClient } from "@/components/no-client";
 import { Badge, Card, DemoBadge, Loading, Notice, PageTitle } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { dateTime, day, dec, int, money, pct } from "@/lib/format";
-import type { CampaignRow } from "@/lib/types";
+import type { Breakdown, BreakdownNode, CampaignRow } from "@/lib/types";
 
 interface Resp { is_demo: boolean; currency: string; period: { start: string; end: string }; campaigns: CampaignRow[] }
 
 const PLATFORM = { meta: "Meta Ads", google: "Google Ads" } as Record<string, string>;
+
+function BreakdownRow({ node, cur, indent }: { node: BreakdownNode; cur: string; indent: boolean }) {
+  const k = node.kpis;
+  return (
+    <tr className="border-t border-line">
+      <td className={`py-2 pr-3 ${indent ? "pl-8 text-muted" : "pl-3 font-medium text-navy-900"}`}>{node.name}</td>
+      <td className="px-3 py-2 text-right">{money(k.spend, cur)}</td>
+      <td className="px-3 py-2 text-right">{int(k.impressions)}</td>
+      <td className="px-3 py-2 text-right">{pct(k.ctr, 2)}</td>
+      <td className="px-3 py-2 text-right">{money(k.cpc, cur)}</td>
+      <td className="px-3 py-2 text-right">{int(k.leads)}</td>
+      <td className="px-3 py-2 text-right">{money(k.cpl, cur)}</td>
+      <td className="px-3 py-2 text-right">{k.attributed_roas == null ? "—" : `${dec(k.attributed_roas)}x`}</td>
+    </tr>
+  );
+}
+
+function BreakdownTable({ clientId, campaignId, days, cur }: { clientId: number; campaignId: number; days: number; cur: string }) {
+  const { data, error, loading } = useApi<Breakdown>(`/clients/${clientId}/campaigns/${campaignId}/breakdown?days=${days}`);
+  if (loading) return <p className="mt-2 text-muted">Carregando detalhamento…</p>;
+  if (error) return <p className="mt-2 text-rose-700">{error}</p>;
+  if (!data || data.ad_sets.length === 0) return <p className="mt-1 text-muted">A fonte não entrega detalhamento para esta campanha no período.</p>;
+  const setLabel = data.platform === "google" ? "Grupo de anúncios" : "Conjunto / anúncio";
+  return (
+    <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-white">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead className="bg-canvas text-xs text-muted">
+          <tr>{[setLabel, "Investimento", "Impressões", "CTR", "CPC", "Leads", "CPL", "ROAS atrib."].map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {data.ad_sets.map((s) => (
+            <Fragment key={s.id}>
+              <BreakdownRow node={s} cur={cur} indent={false} />
+              {s.ads.map((a) => <BreakdownRow key={a.id} node={a} cur={cur} indent />)}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function CampaignsPage() {
   const { client } = useApp();
@@ -31,7 +72,7 @@ export default function CampaignsPage() {
         } />
       {error && <Notice tone="error">{error}</Notice>}
       {loading && <Loading />}
-      {data && data.campaigns.length === 0 && <Notice tone="warn">Nenhuma campanha disponível. Clientes reais dependem dos conectores da Fase 2.</Notice>}
+      {data && data.campaigns.length === 0 && <Notice tone="warn">Nenhuma campanha disponível. Conecte o Windsor.ai e sincronize em Configurações.</Notice>}
       {data && data.campaigns.length > 0 && (
         <Card>
           <div className="overflow-x-auto">
@@ -70,7 +111,9 @@ export default function CampaignsPage() {
                         <tr className="border-b border-line bg-canvas">
                           <td colSpan={head.length} className="px-4 py-4 text-sm">
                             <p className="text-xs text-muted">Objetivo: {c.objective ?? "—"} · {k ? `${k.days} dia(s) com dados no período` : "sem dados no período"}</p>
-                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Histórico de alterações</p>
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Conjuntos e anúncios</p>
+                            <BreakdownTable clientId={client.id} campaignId={c.id} days={days} cur={cur} />
+                            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Histórico de alterações</p>
                             {c.changes.length === 0 ? <p className="mt-1 text-muted">Nenhuma alteração registrada.</p> : (
                               <ul className="mt-1 space-y-1">
                                 {c.changes.map((ch) => (
@@ -92,7 +135,7 @@ export default function CampaignsPage() {
           </div>
           <p className="border-t border-line px-4 py-3 text-xs text-muted">
             ROAS atribuído vem da plataforma; ROAS confirmado usa vendas registradas. Frequência é a média diária (alcance diário não é deduplicado entre dias).
-            Conjuntos de anúncios e anúncios entram com os conectores da Fase 2.
+            Clique em uma campanha para ver conjuntos e anúncios; vendas confirmadas só existem no nível da campanha.
           </p>
         </Card>
       )}

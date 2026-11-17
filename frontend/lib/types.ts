@@ -54,7 +54,7 @@ export interface Dashboard {
   targets: { cac: number | null; roas: number | null };
   series: { date: string; spend: number | null; confirmed_revenue: number | null; leads: number | null;
             confirmed_sales: number | null }[];
-  alerts: Recommendation[]; data_quality: DataQuality;
+  alerts: Recommendation[]; data_quality: DataQuality; pacing: Pacing;
 }
 
 export interface CampaignRow {
@@ -71,3 +71,22 @@ export interface Integration { key: string; name: string; kind: string; status: 
 export interface AuditEntry { id: number; ts: string; actor: string; client_id: number | null; action: string;
                               entity_type: string | null; entity_id: number | null;
                               details: Record<string, unknown>; hash: string }
+
+export interface AccountRef { platform: "meta" | "google"; external_id: string; name: string }
+export interface DiscoveredAccount extends AccountRef { currency: string | null; spend: number | null }
+export interface IntegrationInfo {
+  provider: string; configured: boolean; data_mode: "demo" | "live"; status?: "untested" | "connected" | "error";
+  key_hint?: string; accounts?: AccountRef[]; last_error?: string | null; last_checked_at?: string | null;
+  last_synced_at?: string | null; check?: string;
+}
+export interface SyncRun {
+  id: number; provider: string; status: "running" | "completed" | "failed"; period_start: string; period_end: string;
+  stats: Record<string, number> | null; issues: string[]; error: string | null; triggered_by: string;
+  started_at: string; finished_at: string | null;
+}
+export interface Pacing {
+  month: string; as_of: string; days_elapsed: number; days_in_month: number; mtd_spend: number | null;
+  monthly_budget: number | null; projected_spend: number | null; projected_vs_budget: number | null;
+}
+export interface BreakdownNode { id: number; name: string; kpis: Kpis; ads?: BreakdownNode[] }
+export interface Breakdown { campaign_id: number; platform: string; ad_sets: (BreakdownNode & { ads: BreakdownNode[] })[] }

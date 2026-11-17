@@ -1,11 +1,13 @@
 """Agente 01 — Data Intelligence (Fase 1: validação do que está armazenado)."""
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import AdAccount, Campaign, Client, MetricDaily, SalesDaily
+from app.models import AdAccount, Campaign, Client, Integration, MetricDaily, SalesDaily, SyncRun
+
+STALE_AFTER = timedelta(hours=36)
 
 
 def validate(db: Session, client: Client, start: date, end: date) -> dict[str, Any]:
@@ -31,6 +33,23 @@ def validate(db: Session, client: Client, start: date, end: date) -> dict[str, A
     if rows and not has_sales:
         issues.append("Não há vendas confirmadas no período: CAC real e ROAS confirmado ficam indisponíveis.")
     last_sync = db.scalar(select(func.max(AdAccount.last_synced_at)).where(AdAccount.client_id == client.id))
+    run = db.scalar(select(SyncRun).where(SyncRun.client_id == client.id).order_by(SyncRun.id.desc()).limit(1))
+    if client.data_mode == "live":
+        integration = db.scalar(select(Integration).where(Integration.client_id == client.id))
+        if integration is None:
+            issues.append("Nenhuma fonte de dados conectada para este cliente.")
+        elif last_sync is None:
+            issues.append("A fonte de dados está conectada, mas ainda não houve sincronização concluída.")
+        else:
+            aware = last_sync if last_sync.tzinfo else last_sync.replace(tzinfo=UTC)
+            age = datetime.now(UTC) - aware
+            if age > STALE_AFTER:
+                hours = int(age.total_seconds() // 3600)
+                issues.append(f"Dados desatualizados: última sincronização há {hours} horas.")
+        if run is not None and run.status == "failed":
+            issues.append(f"A última sincronização falhou: {run.error}")
+    if run is not None and run.status == "completed":
+        issues.extend(run.issues or [])
     return {
         "has_data": bool(rows),
         "is_demo": client.data_mode == "demo",

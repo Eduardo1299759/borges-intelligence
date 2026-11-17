@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     env: str = "development"  # development | test | production
     database_url: str = "sqlite:///./borges.db"
     secret_key: str = ""
+    # Chave Fernet para cifrar credenciais de integrações. Sem ela, credenciais não podem ser salvas.
+    encryption_key: str = ""
+    windsor_base_url: str = "https://connectors.windsor.ai"
     access_token_minutes: int = 480
     cookie_name: str = "borges_session"
     cookie_secure: bool = False

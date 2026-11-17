@@ -10,7 +10,16 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-from app.connectors.base import CampaignRecord, ConnectionStatus, MetricRecord, SaleRecord
+from app.connectors.base import (
+    AdRecord,
+    AdSetRecord,
+    BreakdownRecord,
+    CampaignRecord,
+    ConnectionStatus,
+    MetricRecord,
+    Payload,
+    SaleRecord,
+)
 
 HISTORY_DAYS = 90
 
@@ -63,8 +72,9 @@ class DemoConnector:
     sales_source = "demo_crm"
     is_demo = True
 
-    def __init__(self, seed: str, today: date | None = None):
+    def __init__(self, seed: str, today: date | None = None, currency: str = "BRL"):
         self.seed = seed
+        self.currency = currency
         self.end = (today or date.today()) - timedelta(days=1)
 
     def check(self) -> ConnectionStatus:
@@ -73,7 +83,7 @@ class DemoConnector:
     def campaigns(self) -> list[CampaignRecord]:
         return [
             CampaignRecord(s.platform, *ACCOUNTS[s.platform], f"demo-{s.key}", s.name, s.objective, "active",
-                           Decimal(str(s.daily_budget)))
+                           Decimal(str(s.daily_budget)), self.currency)
             for s in SCENARIOS
         ]
 
@@ -107,8 +117,52 @@ class DemoConnector:
                 sales.append(SaleRecord(f"demo-{s.key}", day, n_sales, Decimal(f"{revenue:.2f}")))
         return metrics, sales
 
-    def metrics(self, start: date, end: date) -> list[MetricRecord]:
-        return [m for m in self._generate()[0] if start <= m.date <= end]
+    def _structure(self) -> tuple[list[AdSetRecord], list[AdRecord], dict[str, list[tuple[str, str | None, float]]]]:
+        """Conjuntos e anúncios de cada campanha, com a fração do resultado que cabe a cada um."""
+        ad_sets: list[AdSetRecord] = []
+        ads: list[AdRecord] = []
+        shares: dict[str, list[tuple[str, str | None, float]]] = {}
+        for s in SCENARIOS:
+            cid = f"demo-{s.key}"
+            if s.platform == "meta":
+                layout = [("Público amplo", [("Vídeo depoimento", 0.40), ("Imagem oferta", 0.25)]),
+                          ("Interesses", [("Carrossel cardápio", 0.22), ("Imagem combo", 0.13)])]
+            else:  # Google: o nível mais baixo aqui é o grupo de anúncios
+                layout = [("Grupo principal", [(None, 0.65)]), ("Grupo secundário", [(None, 0.35)])]
+            shares[cid] = []
+            for i, (set_name, items) in enumerate(layout, 1):
+                set_id = f"{cid}-set{i}"
+                ad_sets.append(AdSetRecord(cid, set_id, set_name, "active"))
+                for j, (ad_name, share) in enumerate(items, 1):
+                    ad_id = f"{set_id}-ad{j}" if ad_name else None
+                    if ad_id:
+                        ads.append(AdRecord(set_id, ad_id, ad_name, "active"))
+                    shares[cid].append((set_id, ad_id, share))
+        return ad_sets, ads, shares
 
-    def sales(self, start: date, end: date) -> list[SaleRecord]:
-        return [r for r in self._generate()[1] if start <= r.date <= end]
+    def fetch(self, start: date, end: date) -> Payload:
+        metrics, sales = self._generate()
+        metrics = [m for m in metrics if start <= m.date <= end]
+        sales = [r for r in sales if start <= r.date <= end]
+        ad_sets, ads, shares = self._structure()
+        breakdown: list[BreakdownRecord] = []
+        for m in metrics:
+            parts = shares[m.campaign_external_id]
+            left = {f: getattr(m, f) for f in _SPLIT}
+            for n, (set_id, ad_id, share) in enumerate(parts):
+                last = n == len(parts) - 1
+                row = {}
+                for f in _SPLIT:
+                    total = getattr(m, f)
+                    if isinstance(total, Decimal):
+                        value = left[f] if last else (total * Decimal(str(share))).quantize(Decimal("0.01"))
+                    else:
+                        value = left[f] if last else int(total * share)
+                    left[f] -= value  # o último recebe o resto: a soma fecha exatamente com a campanha
+                    row[f] = value
+                breakdown.append(BreakdownRecord(m.campaign_external_id, set_id, ad_id, m.date, **row))
+        return Payload(campaigns=self.campaigns(), metrics=metrics, sales=sales, ad_sets=ad_sets, ads=ads,
+                       breakdown=breakdown)
+
+
+_SPLIT = ("spend", "impressions", "clicks", "link_clicks", "leads", "attributed_purchases", "attributed_revenue")

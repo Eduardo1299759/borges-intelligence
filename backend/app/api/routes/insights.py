@@ -1,17 +1,29 @@
 """Visão geral e gestor de campanhas (somente leitura)."""
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.agents import data_intelligence
+from app.agents import data_intelligence, financial
 from app.api.deps import current_user
 from app.api.serializers import recommendation_out
 from app.core.db import get_db
-from app.models import REC_ADJUST, REC_AWAITING, Campaign, Client, Execution, Recommendation, User
+from app.models import (
+    REC_ADJUST,
+    REC_AWAITING,
+    Ad,
+    AdSet,
+    BreakdownDaily,
+    Campaign,
+    Client,
+    Execution,
+    Recommendation,
+    User,
+)
 from app.services.access import get_client_or_404
 from app.services.metrics import (
+    Totals,
     account_totals,
     compute_kpis,
     data_bounds,
@@ -67,6 +79,9 @@ def dashboard(client_id: int, days: int = Query(30, ge=7, le=90), user: User = D
         "changes": {k: pct_change(current[k], previous[k]) for k in COMPARED},
         "targets": {"cac": float(client.target_cac) if client.target_cac is not None else None,
                     "roas": float(client.target_roas) if client.target_roas is not None else None},
+        "pacing": financial.pacing(
+            account_totals(db, client.id, end.replace(day=1), end).spend if quality["has_data"] else None,
+            float(client.monthly_budget) if client.monthly_budget is not None else None, end),
         "series": series,
         "alerts": [recommendation_out(r) for r in alerts],
         "data_quality": quality,
@@ -102,3 +117,46 @@ def campaigns(client_id: int, days: int = Query(30, ge=7, le=90), user: User = D
         })
     return {"is_demo": client.data_mode == "demo", "currency": client.currency,
             "period": {"start": start.isoformat(), "end": end.isoformat(), "days": days}, "campaigns": rows}
+
+
+@router.get("/campaigns/{campaign_id}/breakdown")
+def campaign_breakdown(client_id: int, campaign_id: int, days: int = Query(30, ge=7, le=90),
+                       user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Conjuntos/grupos e anúncios de uma campanha, com os indicadores que a fonte entrega nesse nível."""
+    client = get_client_or_404(db, user, client_id)
+    campaign = db.get(Campaign, campaign_id)
+    if campaign is None or campaign.client_id != client.id:
+        raise HTTPException(404, "Campanha não encontrada.")
+    start, end = resolve_period(db, client, days)
+    cols = ("spend", "impressions", "clicks", "link_clicks", "leads", "attributed_purchases", "attributed_revenue")
+    rows = db.execute(
+        select(BreakdownDaily.ad_set_id, BreakdownDaily.ad_id, *[func.sum(getattr(BreakdownDaily, c)) for c in cols])
+        .where(BreakdownDaily.client_id == client.id, BreakdownDaily.campaign_id == campaign.id,
+               BreakdownDaily.date >= start, BreakdownDaily.date <= end)
+        .group_by(BreakdownDaily.ad_set_id, BreakdownDaily.ad_id)
+    ).all()
+
+    def kpis(values: dict[str, float | None]) -> dict[str, float | None]:
+        t = Totals(days=0, **values)
+        k = compute_kpis(t)
+        return {key: k[key] for key in (*cols, "ctr", "cpc", "cpl", "attributed_roas")}
+
+    names = {a.id: a for a in db.scalars(select(Ad).where(Ad.campaign_id == campaign.id))}
+    out = []
+    for ad_set in db.scalars(select(AdSet).where(AdSet.campaign_id == campaign.id).order_by(AdSet.name)):
+        mine = [r for r in rows if r[0] == ad_set.id]
+        if not mine:
+            continue
+        total = Totals()
+        ads = []
+        for r in mine:
+            values = {c: (float(v) if v is not None else None) for c, v in zip(cols, r[2:], strict=True)}
+            total = total + Totals(**values)
+            if r[1] is not None:
+                ads.append({"id": r[1], "name": names[r[1]].name, "kpis": kpis(values)})
+        ads.sort(key=lambda a: a["kpis"]["spend"] or 0, reverse=True)
+        out.append({"id": ad_set.id, "name": ad_set.name,
+                    "kpis": kpis({c: getattr(total, c) for c in cols}), "ads": ads})
+    out.sort(key=lambda s: s["kpis"]["spend"] or 0, reverse=True)
+    return {"campaign_id": campaign.id, "platform": campaign.platform,
+            "period": {"start": start.isoformat(), "end": end.isoformat()}, "ad_sets": out}

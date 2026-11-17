@@ -280,8 +280,13 @@ def evaluate(s: CampaignSnapshot, acc: AccountContext) -> Draft:
             ev("ROAS confirmado", num(roas),
                f"meta {num(acc.target_roas)}" if acc.target_roas else "meta não informada"),
         ],
-        alternatives=[] if acc.target_cac and acc.target_roas else
-        ["Sem metas de CAC/ROAS cadastradas, as regras de eficiência não puderam ser avaliadas."],
+        alternatives=(
+            ([] if acc.target_cac and acc.target_roas else
+             ["Sem metas de CAC/ROAS cadastradas, as regras de eficiência não puderam ser avaliadas."])
+            + ([] if k["confirmed_sales"] is not None else
+               ["Sem vendas confirmadas para esta campanha, CAC real e ROAS confirmado não puderam ser avaliados; "
+                "apenas amostra e fadiga criativa foram verificadas."])
+        ),
     )
 
 

@@ -18,8 +18,9 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 
 def load_demo_data(db: Session, client: Client) -> dict[str, int]:
     today = date.today()
-    return ingest(db, client, DemoConnector(seed=f"client-{client.id}", today=today),
-                  today - timedelta(days=HISTORY_DAYS), today)
+    start = today - timedelta(days=HISTORY_DAYS)
+    connector = DemoConnector(seed=f"client-{client.id}", today=today, currency=client.currency)
+    return ingest(db, client, connector, connector.fetch(start, today), start, today)
 
 
 @router.get("", response_model=list[ClientOut])

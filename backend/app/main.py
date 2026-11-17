@@ -1,6 +1,6 @@
 from fastapi import APIRouter, FastAPI
 
-from app.api.routes import auth, clients, insights, intelligence, system
+from app.api.routes import auth, clients, insights, integrations, intelligence, system
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 
@@ -10,7 +10,7 @@ def create_app() -> FastAPI:
     get_settings().resolved_secret_key()  # falha cedo se faltar a chave em produção
     app = FastAPI(title="Borges Intelligence API", version="0.1.0")
     api = APIRouter(prefix="/api")
-    for module in (system, auth, clients, insights, intelligence):
+    for module in (system, auth, clients, insights, intelligence, integrations):
         api.include_router(module.router)
     app.include_router(api)
     return app

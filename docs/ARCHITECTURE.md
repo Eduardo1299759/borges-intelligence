@@ -35,6 +35,9 @@ Navegador ──> Next.js ──(/api, proxy same-origin)──> FastAPI ──>
 - `sales_daily` — vendas **confirmadas** (CRM/pedidos). Separadas de propósito da receita atribuída.
 - `analysis_runs`, `recommendations` — análises do Borges Core e recomendações estruturadas.
 - `approval_decisions`, `executions` — decisão humana e execução (com verificações e estado antes/depois).
+- `ad_sets`, `ads`, `breakdown_daily` — conjuntos/grupos, anúncios e fatos diários no nível mais baixo que
+  a fonte entrega. A verdade dos indicadores continua em `metric_daily`; o detalhe é reconciliado contra ela.
+- `integrations` — credencial cifrada e contas selecionadas, por cliente. `sync_runs` — cada sincronização.
 - `audit_log` — trilha somente-inserção encadeada por hash.
 
 Toda tabela de negócio tem `client_id`. O acesso passa por `services/access.py`; um cliente de
@@ -50,6 +53,41 @@ terceiros responde 404, igual a um inexistente.
 - **Demonstração sempre sinalizada.** `is_demo` acompanha métricas, análises e recomendações; fontes
   aparecem como `demo_ads`/`demo_crm`.
 - **Não decidir sobre ruído.** Abaixo de 7 dias, ou de 30 leads e 10 vendas, a recomendação é não alterar.
+
+## Conector Windsor.ai (somente leitura)
+
+`connectors/windsor.py` tem duas partes: `WindsorClient` (HTTP: autenticação, 3 tentativas com espera
+para 429/5xx/rede, erros que nunca contêm a chave) e `WindsorConnector` (normalização).
+
+Regras de normalização, derivadas do formato real das linhas:
+
+| Situação na fonte | Tratamento |
+|---|---|
+| Meta: orçamento diário em centavos | dividido por 100 |
+| Meta: ação ausente (`null`) em linha com entrega | zero; sem entrega, permanece indisponível |
+| Meta: leads | leads + conversas iniciadas por mensagem |
+| Google: `conversions` | entram como leads; compras atribuídas ficam indisponíveis |
+| Google: orçamento da campanha | indisponível nesta fonte (ações de orçamento viram revisão manual) |
+| Campanha renomeada no período (duas linhas no mesmo dia) | somadas pelo ID; fato reportado |
+| Alcance | lido no nível da campanha; não é somado entre anúncios |
+| Conta em moeda diferente da do cliente | ignorada e reportada (não há conversão de câmbio) |
+| Linha de conta não selecionada para o cliente | descartada e reportada |
+
+A cada sincronização o investimento por anúncio/grupo é somado e comparado ao da campanha, dia a dia
+(tolerância de 1%). Divergências, lacunas, dados com mais de 36 horas e falhas aparecem em
+“Qualidade dos dados” no dashboard e nas análises.
+
+**Pendências conhecidas do conector**
+- O formato da requisição REST (`/{conector}?api_key=…&date_from=…&date_to=…&fields=…&select_accounts=…`)
+  não foi validado contra a API real. Está isolado em `WindsorClient.query`. Se o parâmetro de filtro de
+  contas estiver errado, o efeito é só de desempenho: o descarte de contas alheias é feito no Borges.
+- Os nomes de campos foram conferidos no catálogo real do Windsor.ai.
+- Datas vêm no fuso da conta de anúncios; não há conversão para o fuso do cliente.
+- A descoberta de contas só lista contas com dados nos últimos 30 dias.
+- A sincronização é síncrona (dentro da requisição). Fila e agendamento entram na Fase 6.
+
+Credenciais: cifradas com Fernet (`core/crypto.py`), chave em `BORGES_ENCRYPTION_KEY`, fora do banco.
+A API devolve apenas os 4 últimos caracteres. Trocar ou perder a chave exige recadastrar as credenciais.
 
 ## Motor de decisão
 

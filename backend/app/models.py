@@ -92,6 +92,7 @@ class AdAccount(Base):
     external_id: Mapped[str] = mapped_column(String(80))
     name: Mapped[str] = mapped_column(String(160))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    currency: Mapped[str | None] = mapped_column(String(3))
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -110,6 +111,93 @@ class Campaign(Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
     client: Mapped[Client] = relationship(back_populates="campaigns")
+
+
+class AdSet(Base):
+    """Conjunto de anúncios (Meta) ou grupo de anúncios (Google)."""
+
+    __tablename__ = "ad_sets"
+    __table_args__ = (UniqueConstraint("campaign_id", "external_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    external_id: Mapped[str] = mapped_column(String(80))
+    name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str | None] = mapped_column(String(20))
+
+
+class Ad(Base):
+    __tablename__ = "ads"
+    __table_args__ = (UniqueConstraint("ad_set_id", "external_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    ad_set_id: Mapped[int] = mapped_column(ForeignKey("ad_sets.id", ondelete="CASCADE"), index=True)
+    external_id: Mapped[str] = mapped_column(String(80))
+    name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str | None] = mapped_column(String(20))
+
+
+class BreakdownDaily(Base):
+    """Fato diário no nível mais baixo que a fonte entrega (anúncio na Meta, grupo no Google).
+
+    A verdade para os indicadores da campanha continua sendo metric_daily; esta tabela detalha e é
+    reconciliada contra ela a cada sincronização.
+    """
+
+    __tablename__ = "breakdown_daily"
+    __table_args__ = (UniqueConstraint("entity_key", "date", "source"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    ad_set_id: Mapped[int] = mapped_column(ForeignKey("ad_sets.id", ondelete="CASCADE"), index=True)
+    ad_id: Mapped[int | None] = mapped_column(ForeignKey("ads.id", ondelete="CASCADE"))
+    entity_key: Mapped[str] = mapped_column(String(40))  # "ad:<id>" ou "adset:<id>"
+    date: Mapped[date] = mapped_column(Date, index=True)
+    source: Mapped[str] = mapped_column(String(40))
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    spend: Mapped[Decimal | None] = mapped_column(Money)
+    impressions: Mapped[int | None] = mapped_column(Integer)
+    clicks: Mapped[int | None] = mapped_column(Integer)
+    link_clicks: Mapped[int | None] = mapped_column(Integer)
+    leads: Mapped[int | None] = mapped_column(Integer)
+    attributed_purchases: Mapped[int | None] = mapped_column(Integer)
+    attributed_revenue: Mapped[Decimal | None] = mapped_column(Money)
+
+
+class Integration(Base):
+    """Credencial de uma fonte de dados para UM cliente. O segredo só existe cifrado (core/crypto.py)."""
+
+    __tablename__ = "integrations"
+    __table_args__ = (UniqueConstraint("client_id", "provider"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(30))
+    credentials_encrypted: Mapped[str] = mapped_column(Text)
+    key_hint: Mapped[str] = mapped_column(String(8))  # últimos 4 caracteres, para o usuário reconhecer a chave
+    # Contas que ESTE cliente pode ler. Uma chave costuma dar acesso a contas de vários clientes.
+    accounts: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(20), default="untested")  # untested | connected | error
+    last_error: Mapped[str | None] = mapped_column(Text)
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SyncRun(Base):
+    __tablename__ = "sync_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(20), default="running")  # running | completed | failed
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date)
+    stats: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    issues: Mapped[list[str]] = mapped_column(JSON, default=list)
+    error: Mapped[str | None] = mapped_column(Text)
+    triggered_by: Mapped[str] = mapped_column(String(160))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class MetricDaily(Base):

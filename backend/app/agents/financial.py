@@ -1,7 +1,21 @@
 """Agente 09 — Financial Intelligence (Fase 1: economia unitária da conta)."""
+import calendar
+from datetime import date
 from typing import Any
 
 from app.models import Client
+
+
+def pacing(mtd_spend: float | None, monthly_budget: float | None, as_of: date) -> dict[str, Any]:
+    """Ritmo de investimento no mês de `as_of`. Projeção linear simples: média diária x dias do mês."""
+    days_in_month = calendar.monthrange(as_of.year, as_of.month)[1]
+    projected = None if mtd_spend is None else mtd_spend / as_of.day * days_in_month
+    return {
+        "month": as_of.strftime("%Y-%m"), "as_of": as_of.isoformat(), "days_elapsed": as_of.day,
+        "days_in_month": days_in_month, "mtd_spend": mtd_spend, "monthly_budget": monthly_budget,
+        "projected_spend": projected,
+        "projected_vs_budget": None if projected is None or not monthly_budget else projected / monthly_budget - 1,
+    }
 
 
 def assess(kpis: dict[str, float | None], client: Client) -> dict[str, Any]:

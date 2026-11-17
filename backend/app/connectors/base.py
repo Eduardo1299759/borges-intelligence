@@ -6,7 +6,7 @@ nunca implica permissão para alterar campanhas.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import Protocol
@@ -22,6 +22,7 @@ class CampaignRecord:
     objective: str | None
     status: str
     daily_budget: Decimal | None
+    currency: str | None = None
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,57 @@ class SaleRecord:
 
 
 @dataclass(frozen=True)
+class AdSetRecord:
+    """Conjunto de anúncios (Meta) ou grupo de anúncios (Google)."""
+
+    campaign_external_id: str
+    external_id: str
+    name: str
+    status: str | None = None
+
+
+@dataclass(frozen=True)
+class AdRecord:
+    adset_external_id: str
+    external_id: str
+    name: str
+    status: str | None = None
+
+
+@dataclass(frozen=True)
+class BreakdownRecord:
+    """Fato diário no nível mais baixo disponível: anúncio (ad_external_id) ou conjunto (None).
+
+    Alcance não entra aqui: não é somável entre anúncios nem entre dias.
+    """
+
+    campaign_external_id: str
+    adset_external_id: str
+    ad_external_id: str | None
+    date: date
+    spend: Decimal | None
+    impressions: int | None
+    clicks: int | None
+    link_clicks: int | None
+    leads: int | None
+    attributed_purchases: int | None
+    attributed_revenue: Decimal | None
+
+
+@dataclass
+class Payload:
+    """Tudo que um conector entrega em uma sincronização."""
+
+    campaigns: list[CampaignRecord] = field(default_factory=list)
+    metrics: list[MetricRecord] = field(default_factory=list)
+    sales: list[SaleRecord] = field(default_factory=list)
+    ad_sets: list[AdSetRecord] = field(default_factory=list)
+    ads: list[AdRecord] = field(default_factory=list)
+    breakdown: list[BreakdownRecord] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)  # problemas de qualidade detectados na origem
+
+
+@dataclass(frozen=True)
 class ConnectionStatus:
     ok: bool
     detail: str
@@ -55,13 +107,12 @@ class ConnectionStatus:
 
 
 class ReadConnector(Protocol):
-    source: str
+    source: str  # rótulo gravado em cada linha de métrica
+    sales_source: str | None  # None: o conector não fornece vendas confirmadas
     is_demo: bool
 
     def check(self) -> ConnectionStatus: ...
-    def campaigns(self) -> list[CampaignRecord]: ...
-    def metrics(self, start: date, end: date) -> list[MetricRecord]: ...
-    def sales(self, start: date, end: date) -> list[SaleRecord]: ...
+    def fetch(self, start: date, end: date) -> Payload: ...
 
 
 class WriteConnector(Protocol):

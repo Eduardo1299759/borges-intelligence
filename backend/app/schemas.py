@@ -135,3 +135,29 @@ class AnalysisOut(BaseModel):
     summary: dict[str, Any] | None
     created_at: datetime
     recommendations: list[RecommendationOut]
+
+
+class WindsorKeyIn(BaseModel):
+    api_key: str = Field(min_length=8, max_length=400)
+
+    @field_validator("api_key")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        v = v.strip()
+        if any(ch.isspace() for ch in v):
+            raise ValueError("A chave não pode conter espaços.")
+        return v
+
+
+class AccountSelection(BaseModel):
+    platform: Literal["meta", "google"]
+    external_id: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=200)
+
+
+class AccountsIn(BaseModel):
+    accounts: list[AccountSelection] = Field(max_length=50)
+
+
+class SyncIn(BaseModel):
+    days: int = Field(default=30, ge=1, le=90)

@@ -3,12 +3,13 @@
 Plataforma de inteligência para gestão, análise e otimização de tráfego pago, operada por agentes
 especializados coordenados pelo **Borges Core**.
 
-**Estado atual: Fase 1 concluída (fundação funcional + MVP).** Veja [docs/PHASES.md](docs/PHASES.md)
+**Estado atual: Fases 1 e 2 implementadas.** A Fase 2 (Windsor.ai) está testada contra respostas simuladas
+no formato real; a validação contra a API real do Windsor.ai ainda está pendente. Veja [docs/PHASES.md](docs/PHASES.md)
 para o que existe, o que é simulado e o que vem a seguir, e [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 para as decisões técnicas.
 
-> Esta versão opera apenas com **dados demonstrativos**, sempre sinalizados. Não há integração com
-> plataformas de anúncios, não há chamadas a LLM e nenhuma campanha real é lida ou alterada.
+> Clientes de **demonstração** usam dados gerados, sempre sinalizados. Clientes **reais** leem Meta Ads e
+> Google Ads pelo Windsor.ai, somente leitura. Não há chamadas a LLM e nenhuma campanha real é alterada.
 
 ## Executar localmente (sem Docker)
 
@@ -40,6 +41,17 @@ cp .env.example .env                       # preencha as três variáveis vazias
 docker compose up --build                  # http://localhost:3000
 ```
 
+## Conectar um cliente real (Windsor.ai)
+
+1. Defina `BORGES_ENCRYPTION_KEY` (veja `backend/.env.example`). Sem ela a API recusa guardar credenciais.
+2. Crie o cliente com fonte de dados **Real**.
+3. Em **Configurações**, informe a chave de API do Windsor.ai. Ela é cifrada, testada e nunca mais exibida.
+4. Clique em **Escolher contas** e marque só as contas daquele cliente. Uma chave costuma enxergar contas
+   de vários clientes; o Borges só lê as marcadas e descarta qualquer linha de outra conta.
+5. **Sincronizar agora.** O histórico mostra o resultado e os problemas de qualidade encontrados.
+
+Sem CRM (Fase 5) não há vendas confirmadas: CAC real e ROAS confirmado aparecem como indisponíveis.
+
 ## Testes
 
 ```bash
@@ -56,6 +68,20 @@ E2E_EMAIL=admin@borges.local E2E_PASSWORD=... node e2e/mvp.cjs   # exige API + f
 ```
 
 O teste E2E percorre no navegador os dez critérios de aceitação do MVP.
+
+O E2E da Fase 2 usa um Windsor.ai falso local (nunca a API real):
+
+```bash
+cd backend && .venv/bin/python -m tests.fake_windsor_server 8099
+```
+
+```bash
+cd backend && BORGES_WINDSOR_BASE_URL=http://127.0.0.1:8099 .venv/bin/uvicorn app.main:app --port 8000
+```
+
+```bash
+cd frontend && E2E_EMAIL=admin@borges.local E2E_PASSWORD=... node e2e/phase2.cjs
+```
 
 ## Usuários e papéis
 
@@ -79,8 +105,8 @@ backend/app/
   core/         configuração, banco, segurança, logs
   models.py     modelo de dados
   api/          rotas HTTP (camada fina)
-  services/     métricas, auditoria, isolamento por cliente, ingestão
-  connectors/   contrato de conectores + conector de demonstração
+  services/     métricas, auditoria, isolamento por cliente, ingestão, sincronização
+  connectors/   contrato de conectores, demonstração e Windsor.ai (leitura)
   agents/       Borges Core, Data Intelligence, Performance Auditor, Financial Intelligence
   decision/     motor de decisão (funções puras)
   execution/    aprovação, validação pré-execução, execução verificada

@@ -71,10 +71,10 @@ export default function ClientsPage() {
             {error && <div className="md:col-span-2 xl:col-span-3"><Notice tone="error">{error}</Notice></div>}
             <Field label="Nome"><input required minLength={2} value={form.name} onChange={set("name")} className={inputClass} /></Field>
             <Field label="Segmento"><input value={form.segment} onChange={set("segment")} placeholder="Ex.: Restaurante / delivery" className={inputClass} /></Field>
-            <Field label="Fonte de dados" hint={editing === "new" ? "Demonstração gera 90 dias de dados sinalizados. Real fica sem dados até a Fase 2." : "Definida na criação."}>
+            <Field label="Fonte de dados" hint={editing === "new" ? "Demonstração gera 90 dias de dados sinalizados. Real começa vazio: conecte o Windsor.ai em Configurações." : "Definida na criação."}>
               <select value={form.data_mode} onChange={set("data_mode")} disabled={editing !== "new"} className={inputClass}>
                 <option value="demo">Demonstração (dados simulados)</option>
-                <option value="live">Real (aguarda integrações)</option>
+                <option value="live">Real (Windsor.ai)</option>
               </select>
             </Field>
             <div className="md:col-span-2 xl:col-span-3">
@@ -117,7 +117,7 @@ export default function ClientsPage() {
                       <p className="font-medium text-navy-900">{c.name}</p>
                       <p className="text-xs text-muted">{c.segment ?? "Segmento não informado"}</p>
                     </td>
-                    <td className="px-5 py-3">{c.data_mode === "demo" ? <DemoBadge /> : <Badge tone="amber">Real · sem integração</Badge>}</td>
+                    <td className="px-5 py-3">{c.data_mode === "demo" ? <DemoBadge /> : <Badge tone="green">Real</Badge>}</td>
                     <td className="px-5 py-3">{money(c.target_cac, c.currency)}</td>
                     <td className="px-5 py-3">{c.target_roas ? `${dec(c.target_roas)}x` : "—"}</td>
                     <td className="px-5 py-3">{c.gross_margin_pct ? `${dec(c.gross_margin_pct, 0)}%` : "—"}</td>

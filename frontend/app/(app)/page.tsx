@@ -58,8 +58,8 @@ export default function OverviewPage() {
       {loading && <Loading />}
       {data && !data.has_data && (
         <Notice tone="warn">
-          Este cliente ainda não tem dados. Clientes reais dependem dos conectores da Fase 2 (Windsor.ai, Meta, Google);
-          até lá, os indicadores ficam indisponíveis — o sistema não preenche valores.
+          Este cliente ainda não tem dados. <Link href="/configuracoes" className="font-medium underline">Conecte o Windsor.ai e sincronize</Link>{" "}
+          em Configurações. Até lá os indicadores ficam indisponíveis — o sistema não preenche valores.
         </Notice>
       )}
       {data && k && data.has_data && (
@@ -101,8 +101,31 @@ export default function OverviewPage() {
             </Card>
           </div>
 
+          {data.pacing.mtd_spend !== null && (
+            <Card className="p-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold text-navy-900">Ritmo de investimento em {data.pacing.month.slice(5)}/{data.pacing.month.slice(0, 4)}</h2>
+                <p className="text-xs text-muted">Dia {data.pacing.days_elapsed} de {data.pacing.days_in_month} · projeção linear pela média diária do mês</p>
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                <div><dt className="text-xs text-muted">Investido no mês</dt><dd className="font-semibold">{money(data.pacing.mtd_spend, cur)}</dd></div>
+                <div><dt className="text-xs text-muted">Orçamento mensal</dt><dd className="font-semibold">{money(data.pacing.monthly_budget, cur)}</dd></div>
+                <div><dt className="text-xs text-muted">Projeção de fechamento</dt><dd className="font-semibold">{money(data.pacing.projected_spend, cur)}</dd></div>
+                <div>
+                  <dt className="text-xs text-muted">Projeção vs. orçamento</dt>
+                  <dd className={`font-semibold ${data.pacing.projected_vs_budget !== null && Math.abs(data.pacing.projected_vs_budget) > 0.1 ? "text-amber-700" : ""}`}>
+                    {data.pacing.projected_vs_budget === null ? "—" : `${data.pacing.projected_vs_budget > 0 ? "+" : "−"}${pct(Math.abs(data.pacing.projected_vs_budget))}`}
+                  </dd>
+                </div>
+              </dl>
+            </Card>
+          )}
+
           {data.data_quality.issues.length > 0 && (
-            <Notice tone="warn"><strong>Qualidade dos dados:</strong> {data.data_quality.issues.join(" ")}</Notice>
+            <Notice tone="warn">
+              <strong>Qualidade dos dados</strong>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5">{data.data_quality.issues.map((i) => <li key={i}>{i}</li>)}</ul>
+            </Notice>
           )}
         </div>
       )}

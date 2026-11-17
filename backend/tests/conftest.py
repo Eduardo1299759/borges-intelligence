@@ -2,6 +2,9 @@ import os
 
 os.environ.setdefault("BORGES_ENV", "test")
 os.environ.setdefault("BORGES_SECRET_KEY", "test-secret-key-not-for-production-0123456789")
+from cryptography.fernet import Fernet  # noqa: E402
+
+os.environ.setdefault("BORGES_ENCRYPTION_KEY", Fernet.generate_key().decode())  # chave descartável por execução
 # Por padrão os testes usam SQLite em memória; defina BORGES_TEST_DATABASE_URL para rodar em PostgreSQL.
 os.environ["BORGES_DATABASE_URL"] = os.environ.get("BORGES_TEST_DATABASE_URL", "sqlite://")
 

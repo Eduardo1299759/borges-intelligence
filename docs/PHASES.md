@@ -30,17 +30,32 @@
 - A execução: altera apenas o orçamento da campanha demonstrativa no banco do Borges.
 
 **Não existe ainda** (aparece na interface como “Fase N”, nunca como tela vazia)
-- Qualquer integração real, LLM, conjuntos/anúncios, agentes 03–08, 10 e 11, agendador, relatórios,
+- (na Fase 1) Qualquer integração real, LLM, conjuntos/anúncios, agentes 03–08, 10 e 11, agendador, relatórios,
   Creative Studio, Radar competitivo, Inteligência comercial, nível 3 de operação, etapa “mensurar/aprender”.
 
-## Fase 2 — Inteligência de dados (próxima)
+## Fase 2 — Inteligência de dados ✅ (validação com a API real pendente)
 
-- Conector Windsor.ai (leitura) implementando `connectors/base.py::ReadConnector`.
-- Armazenamento cifrado de credenciais; validação de conexão e permissões; horário de sincronização.
-- Conjuntos de anúncios e anúncios; dimensões (dispositivo, posicionamento, região, horário).
-- Reconciliação entre fontes, fuso/moeda/janela de atribuição, detecção de lacunas e duplicidades.
-- Aceitação: sincronizar uma conta real em leitura, com divergências entre fontes reportadas e testes
-  de integridade sobre respostas gravadas da API.
+**Entregue**
+- Conector Windsor.ai de leitura para Meta Ads e Google Ads, por cliente.
+- Credenciais cifradas em repouso; conexão testada ao salvar; seleção explícita de contas por cliente.
+- Hierarquia campanha → conjunto/grupo → anúncio, com detalhamento no Gestor de campanhas.
+- Sincronização idempotente com histórico, estado (executando/concluída/falhou) e auditoria.
+- Validação: lacunas, dados desatualizados, falhas, moeda divergente, campanhas renomeadas e
+  reconciliação entre o nível da campanha e o dos anúncios.
+- Ritmo de investimento do mês frente ao orçamento mensal.
+
+**Como é verificado**
+- `tests/test_windsor.py`: transporte HTTP (tentativas, erros, sigilo da chave), normalização, reconciliação.
+- `tests/test_sync_flow.py`: conectar → escolher contas → sincronizar → consultar, isolamento e papéis.
+- `frontend/e2e/phase2.cjs`: o mesmo fluxo no navegador.
+- Todos usam um Windsor.ai falso cujas linhas reproduzem o formato real observado.
+
+**Pendente**
+- Uma sincronização contra a API real do Windsor.ai, com uma chave real. Até lá, o formato da requisição
+  REST é uma suposição isolada em um único método.
+- Dimensões (dispositivo, posicionamento, região, horário), GA4 e Search Console.
+- Vendas confirmadas para clientes reais (CRM, Fase 5): sem elas, CAC real e ROAS confirmado ficam
+  indisponíveis e as regras de eficiência não rodam.
 
 ## Fase 3 — Agentes e diagnóstico
 Provedor de LLM atrás de interface (com controle de custo), interpretação da pergunta, especialistas
